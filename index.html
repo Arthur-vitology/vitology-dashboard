@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vitology CRM Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f5f4f0;
+    --surface: #ffffff;
+    --border: #e2e0d8;
+    --text: #1a1917;
+    --muted: #6b6860;
+    --green: #1a6b4a;
+    --green-bg: #e8f5ee;
+    --blue: #1a4a8c;
+    --blue-bg: #e8f0fb;
+    --red: #8c1a1a;
+    --red-bg: #fbe8e8;
+    --amber: #7a4a00;
+    --amber-bg: #fdf2e0;
+    --accent: #2d5be3;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 14px;
+    line-height: 1.5;
+  }
+  header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 16px 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .logo { font-size: 17px; font-weight: 600; letter-spacing: -0.02em; }
+  .logo span { color: var(--accent); }
+  .last-updated { font-size: 12px; color: var(--muted); font-family: 'DM Mono', monospace; }
+  .container { max-width: 1200px; margin: 0 auto; padding: 24px 32px; }
+
+  /* Filters */
+  .filters {
+    display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 24px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 10px; padding: 14px 18px; align-items: center;
+  }
+  .filters label { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; margin-right: 4px; }
+  .filters select {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px; font-weight: 500;
+    padding: 6px 28px 6px 10px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--bg) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%236b6860'/%3E%3C/svg%3E") no-repeat right 10px center;
+    appearance: none; cursor: pointer; color: var(--text);
+  }
+  .filters select:focus { outline: none; border-color: var(--accent); }
+  .filter-group { display: flex; align-items: center; gap: 6px; }
+  .filter-sep { width: 1px; height: 24px; background: var(--border); margin: 0 4px; }
+
+  /* Cost input */
+  .cost-input-wrap { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+  .cost-input-wrap label { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+  .cost-input-wrap input {
+    font-family: 'DM Mono', monospace; font-size: 13px; font-weight: 500;
+    padding: 6px 10px; border: 1px solid var(--border); border-radius: 6px;
+    background: var(--bg); color: var(--text); width: 110px;
+  }
+  .cost-input-wrap input:focus { outline: none; border-color: var(--accent); }
+
+  /* KPI Grid */
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 10px; margin-bottom: 20px;
+  }
+  .kpi {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 10px; padding: 14px 16px;
+  }
+  .kpi-label { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 6px; }
+  .kpi-val { font-size: 26px; font-weight: 600; letter-spacing: -0.03em; line-height: 1; margin-bottom: 3px; }
+  .kpi-sub { font-size: 11px; color: var(--muted); font-family: 'DM Mono', monospace; }
+  .kpi.won { border-color: #b8dfc8; background: var(--green-bg); }
+  .kpi.won .kpi-val { color: var(--green); }
+  .kpi.open { border-color: #b8ccf0; background: var(--blue-bg); }
+  .kpi.open .kpi-val { color: var(--blue); }
+  .kpi.lost { border-color: #f0b8b8; background: var(--red-bg); }
+  .kpi.lost .kpi-val { color: var(--red); }
+
+  /* Cost cards */
+  .cost-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px; margin-bottom: 20px;
+  }
+  .cost-card {
+    background: var(--amber-bg); border: 1px solid #f0d090;
+    border-radius: 10px; padding: 12px 16px;
+  }
+  .cost-card .kpi-label { color: var(--amber); }
+  .cost-card .kpi-val { font-size: 20px; color: var(--amber); }
+
+  /* Funnel */
+  .section {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 10px; padding: 18px 20px; margin-bottom: 16px;
+  }
+  .section-title {
+    font-size: 11px; font-weight: 600; color: var(--muted);
+    text-transform: uppercase; letter-spacing: .06em; margin-bottom: 14px;
+  }
+  .funnel-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+  .funnel-label { font-size: 12px; color: var(--muted); width: 140px; flex-shrink: 0; text-align: right; }
+  .funnel-bar-wrap { flex: 1; background: var(--bg); border-radius: 4px; height: 26px; overflow: hidden; }
+  .funnel-bar {
+    height: 100%; border-radius: 4px;
+    display: flex; align-items: center; padding-left: 10px;
+    transition: width .5s cubic-bezier(.4,0,.2,1);
+    min-width: 2px;
+  }
+  .funnel-bar span { font-size: 12px; font-weight: 600; color: #fff; font-family: 'DM Mono', monospace; }
+  .funnel-pct { font-size: 12px; font-family: 'DM Mono', monospace; color: var(--muted); width: 40px; text-align: right; flex-shrink: 0; }
+
+  /* Charts */
+  .charts-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+  .chart-legend { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
+  .legend-item { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--muted); }
+  .legend-dot { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+
+  /* Tables */
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th {
+    text-align: left; padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+    font-size: 11px; font-weight: 600; color: var(--muted);
+    text-transform: uppercase; letter-spacing: .05em;
+  }
+  td { padding: 9px 12px; border-bottom: 1px solid var(--border); }
+  tr:last-child td { border-bottom: none; }
+  tbody tr:hover { background: var(--bg); }
+  .badge {
+    display: inline-block; padding: 2px 8px;
+    border-radius: 20px; font-size: 11px; font-weight: 600;
+    font-family: 'DM Mono', monospace;
+  }
+  .b-won { background: var(--green-bg); color: var(--green); }
+  .b-open { background: var(--blue-bg); color: var(--blue); }
+  .b-lost { background: var(--red-bg); color: var(--red); }
+
+  /* Loading / Error */
+  .state-msg {
+    text-align: center; padding: 60px 20px;
+    color: var(--muted); font-size: 14px;
+  }
+  .spinner {
+    width: 28px; height: 28px; border: 2px solid var(--border);
+    border-top-color: var(--accent); border-radius: 50%;
+    animation: spin .7s linear infinite; margin: 0 auto 12px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  @media(max-width: 768px) {
+    .container { padding: 16px; }
+    .charts-row { grid-template-columns: 1fr; }
+    .cost-grid { grid-template-columns: repeat(2, 1fr); }
+    .funnel-label { width: 90px; }
+    .cost-input-wrap { margin-left: 0; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Vitology <span>CRM</span></div>
+  <div class="last-updated" id="last-updated">Laden...</div>
+</header>
+
+<div class="container">
+  <div id="loading" class="state-msg"><div class="spinner"></div>Data ophalen...</div>
+  <div id="dashboard" style="display:none">
+
+    <div class="filters">
+      <div class="filter-group">
+        <label>Periode</label>
+        <select id="sel-period">
+          <option value="all">Alle periodes</option>
+          <option value="week">Deze week</option>
+          <option value="month" selected>Deze maand</option>
+          <option value="prev">Vorige maand</option>
+        </select>
+      </div>
+      <div class="filter-sep"></div>
+      <div class="filter-group">
+        <label>Locatie</label>
+        <select id="sel-loc">
+          <option value="all">Alle locaties</option>
+          <option value="Antwerpen">Antwerpen</option>
+          <option value="Schilde">Schilde</option>
+        </select>
+      </div>
+      <div class="filter-sep"></div>
+      <div class="filter-group">
+        <label>Bron</label>
+        <select id="sel-bron">
+          <option value="all">Alle bronnen</option>
+          <option value="Kennismaking formulier">Kennismaking formulier</option>
+          <option value="Heractivatie">Heractivatie</option>
+          <option value="Walk-in">Walk-in</option>
+        </select>
+      </div>
+      <div class="cost-input-wrap">
+        <label>Advertentiekosten €</label>
+        <input type="number" id="ad-cost" value="0" min="0" placeholder="0">
+      </div>
+    </div>
+
+    <div class="kpi-grid" id="kpis"></div>
+    <div class="cost-grid" id="cost-cards"></div>
+
+    <div class="section">
+      <div class="section-title">Conversiefunnel</div>
+      <div id="funnel"></div>
+    </div>
+
+    <div class="charts-row">
+      <div class="section">
+        <div class="section-title">Leads per dag</div>
+        <div style="position:relative;height:200px">
+          <canvas id="chart-leads" role="img" aria-label="Leads per dag">Leads per dag staafgrafiek.</canvas>
+        </div>
+      </div>
+      <div class="section">
+        <div class="section-title">Status verdeling</div>
+        <div style="position:relative;height:160px">
+          <canvas id="chart-status" role="img" aria-label="Status verdeling">Status verdeling donut.</canvas>
+        </div>
+        <div class="chart-legend" id="status-legend"></div>
+      </div>
+    </div>
+
+    <div class="section" style="margin-bottom:16px">
+      <div class="section-title">Per locatie</div>
+      <table id="tbl-loc"></table>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Per bron</div>
+      <table id="tbl-bron"></table>
+    </div>
+
+  </div>
+  <div id="error" class="state-msg" style="display:none">
+    Kon data niet laden. Controleer je internetverbinding of de Google Sheet URL.
+  </div>
+</div>
+
+<script>
+const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ6ul9nS3hs_bL9YVDy05O_kVdGoWsMHcqxME6DPqbarHPW_f4TqYAND05HvgsyEmPePTnTy8rRgXWv/pub?output=csv';
+
+let ALL_DATA = [];
+let chartLeads = null, chartStatus = null;
+const today = new Date();
+const startOfWeek = new Date(today); startOfWeek.setDate(today.getDate() - ((today.getDay()+6)%7));
+const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+const startOfPrevMonth = new Date(today.getFullYear(), today.getMonth()-1, 1);
+const endOfPrevMonth = new Date(today.getFullYear(), today.getMonth(), 0);
+
+function parseCSV(text) {
+  const lines = text.trim().split('\n');
+  const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g,''));
+  return lines.slice(1).map(line => {
+    const vals = line.match(/(".*?"|[^,]+|(?<=,)(?=,)|^(?=,)|(?<=,)$)/g) || [];
+    const obj = {};
+    headers.forEach((h, i) => { obj[h] = (vals[i]||'').replace(/^"|"$/g,'').trim(); });
+    return obj;
+  });
+}
+
+function parseDate(str) {
+  if (!str || str === '/' || str === '') return null;
+  const d = new Date(str);
+  return isNaN(d) ? null : d;
+}
+
+function mapRow(r) {
+  return {
+    locatie: r['Vitology locatie'] || '',
+    bron: r['Bron'] || '',
+    datum: parseDate(r['Registratiedatum']),
+    contacted: r['Contacted?'] || '',
+    proefsessie: parseDate(r['Datum proefsessie']),
+    noshow: r['No show?'] || '',
+    factuurdatum: parseDate(r['eerste factuurdatum']),
+  };
+}
+
+async function loadData() {
+  try {
+    const res = await fetch(CSV_URL);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const text = await res.text();
+    const rows = parseCSV(text);
+    ALL_DATA = rows.map(mapRow).filter(r => r.datum && r.contacted);
+    document.getElementById('last-updated').textContent = 'Bijgewerkt: ' + new Date().toLocaleTimeString('nl-BE');
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('dashboard').style.display = 'block';
+    update();
+  } catch(e) {
+    console.error(e);
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('error').style.display = 'block';
+  }
+}
+
+function filterData() {
+  const p = document.getElementById('sel-period').value;
+  const l = document.getElementById('sel-loc').value;
+  const b = document.getElementById('sel-bron').value;
+  return ALL_DATA.filter(r => {
+    const d = r.datum;
+    if (p === 'week' && d < startOfWeek) return false;
+    if (p === 'month' && d < startOfMonth) return false;
+    if (p === 'prev' && (d < startOfPrevMonth || d > endOfPrevMonth)) return false;
+    if (l !== 'all' && r.locatie !== l) return false;
+    if (b !== 'all' && r.bron !== b) return false;
+    return true;
+  });
+}
+
+function calcMetrics(data) {
+  const total = data.length;
+  const contacted = data.filter(r => ['Ja','Lost','F-Up'].includes(r.contacted)).length;
+  const sessie = data.filter(r => r.proefsessie).length;
+  const show = data.filter(r => r.noshow === 'Aanwezig').length;
+  const noshow = data.filter(r => r.noshow === 'No show').length;
+  const won = data.filter(r => r.factuurdatum).length;
+  const open = data.filter(r => r.contacted === 'F-Up').length;
+  const lost = data.filter(r => r.contacted === 'Lost').length;
+  const winrate = total > 0 ? Math.round(won/total*100) : 0;
+  return {total, contacted, sessie, show, noshow, won, open, lost, winrate};
+}
+
+function pct(a, b) { return b > 0 ? Math.round(a/b*100) : 0; }
+
+function renderKPIs(m) {
+  document.getElementById('kpis').innerHTML = `
+    <div class="kpi"><div class="kpi-label">Leads totaal</div><div class="kpi-val">${m.total}</div></div>
+    <div class="kpi"><div class="kpi-label">Gecontacteerd</div><div class="kpi-val">${m.contacted}</div><div class="kpi-sub">${pct(m.contacted,m.total)}% van leads</div></div>
+    <div class="kpi"><div class="kpi-label">Sessie gepland</div><div class="kpi-val">${m.sessie}</div><div class="kpi-sub">${pct(m.sessie,m.total)}% van leads</div></div>
+    <div class="kpi"><div class="kpi-label">Show / No-show</div><div class="kpi-val">${m.show} / ${m.noshow}</div><div class="kpi-sub">${pct(m.show, m.show+m.noshow)}% show rate</div></div>
+    <div class="kpi won"><div class="kpi-label">Won (klanten)</div><div class="kpi-val">${m.won}</div><div class="kpi-sub">Win rate ${m.winrate}%</div></div>
+    <div class="kpi open"><div class="kpi-label">Open (F-Up)</div><div class="kpi-val">${m.open}</div><div class="kpi-sub">${pct(m.open,m.total)}% van leads</div></div>
+    <div class="kpi lost"><div class="kpi-label">Lost</div><div class="kpi-val">${m.lost}</div><div class="kpi-sub">${pct(m.lost,m.total)}% van leads</div></div>
+  `;
+}
+
+function renderCostCards(m) {
+  const cost = parseFloat(document.getElementById('ad-cost').value) || 0;
+  function cpp(n) { return n > 0 ? '€ ' + Math.round(cost/n) : '—'; }
+  document.getElementById('cost-cards').innerHTML = cost === 0 ? '' : `
+    <div class="cost-card"><div class="kpi-label">Cost per lead</div><div class="kpi-val">${cpp(m.total)}</div></div>
+    <div class="cost-card"><div class="kpi-label">Cost per sessie</div><div class="kpi-val">${cpp(m.sessie)}</div></div>
+    <div class="cost-card"><div class="kpi-label">Cost per show</div><div class="kpi-val">${cpp(m.show)}</div></div>
+    <div class="cost-card"><div class="kpi-label">Cost per won</div><div class="kpi-val">${cpp(m.won)}</div></div>
+  `;
+}
+
+function renderFunnel(m) {
+  const steps = [
+    {label:'Leads totaal', val:m.total, color:'#4a7fdd'},
+    {label:'Gecontacteerd', val:m.contacted, color:'#3a9e72'},
+    {label:'Sessie gepland', val:m.sessie, color:'#5cb85c'},
+    {label:'Aanwezig (show)', val:m.show, color:'#e6a020'},
+    {label:'Won (klant)', val:m.won, color:'#1a6b4a'},
+  ];
+  document.getElementById('funnel').innerHTML = steps.map(s => {
+    const p = m.total > 0 ? Math.round(s.val/m.total*100) : 0;
+    return `<div class="funnel-row">
+      <div class="funnel-label">${s.label}</div>
+      <div class="funnel-bar-wrap">
+        <div class="funnel-bar" style="width:${Math.max(p,1)}%;background:${s.color}">
+          <span>${s.val}</span>
+        </div>
+      </div>
+      <div class="funnel-pct">${p}%</div>
+    </div>`;
+  }).join('');
+}
+
+function renderCharts(data) {
+  const byDay = {};
+  data.forEach(r => {
+    const k = r.datum.toISOString().slice(0,10);
+    byDay[k] = (byDay[k]||0) + 1;
+  });
+  const days = Object.keys(byDay).sort();
+  const counts = days.map(d => byDay[d]);
+
+  const sc = {
+    'Ja': data.filter(r=>r.contacted==='Ja').length,
+    'F-Up': data.filter(r=>r.contacted==='F-Up').length,
+    'Lost': data.filter(r=>r.contacted==='Lost').length,
+    'Nee': data.filter(r=>r.contacted==='Nee').length,
+  };
+
+  if (chartLeads) { chartLeads.destroy(); chartLeads = null; }
+  if (chartStatus) { chartStatus.destroy(); chartStatus = null; }
+
+  chartLeads = new Chart(document.getElementById('chart-leads'), {
+    type: 'bar',
+    data: {
+      labels: days.map(d => d.slice(5)),
+      datasets: [{
+        label: 'Leads', data: counts,
+        backgroundColor: '#b8ccf0', borderColor: '#4a7fdd', borderWidth: 1, borderRadius: 3
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { font: { size: 10, family: 'DM Mono' }, maxRotation: 45, autoSkip: true, maxTicksLimit: 14 }, grid: { display: false } },
+        y: { ticks: { font: { size: 10, family: 'DM Mono' }, stepSize: 1 }, grid: { color: '#f0eeea' } }
+      }
+    }
+  });
+
+  const colors = ['#4a7fdd','#e6a020','#d94f4f','#a0a09a'];
+  chartStatus = new Chart(document.getElementById('chart-status'), {
+    type: 'doughnut',
+    data: {
+      labels: Object.keys(sc),
+      datasets: [{ data: Object.values(sc), backgroundColor: colors, borderWidth: 2, borderColor: '#fff' }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      cutout: '65%'
+    }
+  });
+
+  const labels = Object.keys(sc);
+  document.getElementById('status-legend').innerHTML = labels.map((l,i) =>
+    `<div class="legend-item"><div class="legend-dot" style="background:${colors[i]}"></div>${l} (${sc[l]})</div>`
+  ).join('');
+}
+
+function renderTable(data, groupKey, elId) {
+  const groups = {};
+  data.forEach(r => {
+    const k = r[groupKey] || 'Onbekend';
+    if (!groups[k]) groups[k] = {total:0,contacted:0,sessie:0,show:0,won:0,open:0,lost:0};
+    const g = groups[k];
+    g.total++;
+    if (['Ja','Lost','F-Up'].includes(r.contacted)) g.contacted++;
+    if (r.proefsessie) g.sessie++;
+    if (r.noshow === 'Aanwezig') g.show++;
+    if (r.factuurdatum) g.won++;
+    if (r.contacted === 'F-Up') g.open++;
+    if (r.contacted === 'Lost') g.lost++;
+  });
+  const rows = Object.entries(groups).sort((a,b) => b[1].total - a[1].total).map(([k,g]) =>
+    `<tr>
+      <td style="font-weight:500">${k}</td>
+      <td>${g.total}</td>
+      <td>${g.contacted} <span style="color:var(--muted);font-size:11px;font-family:'DM Mono',monospace">(${pct(g.contacted,g.total)}%)</span></td>
+      <td>${g.sessie}</td>
+      <td>${g.show}</td>
+      <td><span class="badge b-won">${g.won}</span></td>
+      <td><span class="badge b-open">${g.open}</span></td>
+      <td><span class="badge b-lost">${g.lost}</span></td>
+      <td style="font-family:'DM Mono',monospace;font-weight:500">${pct(g.won,g.total)}%</td>
+    </tr>`
+  ).join('');
+  document.getElementById(elId).innerHTML = `
+    <thead><tr>
+      <th>${groupKey === 'locatie' ? 'Locatie' : 'Bron'}</th>
+      <th>Leads</th><th>Contacted</th><th>Sessie</th><th>Show</th>
+      <th>Won</th><th>Open</th><th>Lost</th><th>Win rate</th>
+    </tr></thead>
+    <tbody>${rows}</tbody>`;
+}
+
+function update() {
+  const data = filterData();
+  const m = calcMetrics(data);
+  renderKPIs(m);
+  renderCostCards(m);
+  renderFunnel(m);
+  renderCharts(data);
+  renderTable(data, 'locatie', 'tbl-loc');
+  renderTable(data, 'bron', 'tbl-bron');
+}
+
+document.getElementById('sel-period').addEventListener('change', update);
+document.getElementById('sel-loc').addEventListener('change', update);
+document.getElementById('sel-bron').addEventListener('change', update);
+document.getElementById('ad-cost').addEventListener('input', update);
+
+loadData();
+</script>
+</body>
+</html>
