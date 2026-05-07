@@ -39,7 +39,8 @@
     padding: 6px 10px; border: 1px solid var(--border); border-radius: 6px;
     background: var(--bg); color: var(--text); cursor: pointer;
   }
-  .filter-group select { padding-right: 28px; appearance: none;
+  .filter-group select {
+    padding-right: 28px; appearance: none;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%236b6860'/%3E%3C/svg%3E");
     background-repeat: no-repeat; background-position: right 10px center;
   }
@@ -88,11 +89,11 @@
   .funnel-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
   .funnel-label { font-size: 12px; color: var(--muted); width: 140px; flex-shrink: 0; text-align: right; }
   .funnel-bar-wrap { flex: 1; background: var(--bg); border-radius: 4px; height: 26px; overflow: hidden; position: relative; }
-  .funnel-bar { height: 100%; border-radius: 4px; display: flex; align-items: center; padding-left: 10px; transition: width .5s cubic-bezier(.4,0,.2,1); min-width: 2px; }
+  .funnel-bar { height: 100%; border-radius: 4px; display: flex; align-items: center; padding-left: 10px; transition: width .5s cubic-bezier(.4,0,.2,1); min-width: 2px; position: relative; z-index: 1; }
   .funnel-bar span { font-size: 12px; font-weight: 600; color: #fff; font-family: 'DM Mono', monospace; }
-  .funnel-bar-compare { position: absolute; top: 0; height: 100%; border-radius: 4px; opacity: 0.3; transition: width .5s; }
+  .funnel-bar-compare { position: absolute; top: 0; height: 100%; border-radius: 4px; opacity: 0.3; z-index: 0; }
   .funnel-pct { font-size: 12px; font-family: 'DM Mono', monospace; color: var(--muted); width: 40px; text-align: right; flex-shrink: 0; }
-  .funnel-delta { font-size: 11px; font-family: 'DM Mono', monospace; width: 50px; flex-shrink: 0; }
+  .funnel-delta { font-size: 11px; font-family: 'DM Mono', monospace; width: 60px; flex-shrink: 0; }
   .funnel-delta.up { color: var(--green); }
   .funnel-delta.down { color: var(--red); }
   .charts-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
@@ -255,9 +256,18 @@ function parseCSV(text) {
 function parseDate(str) {
   if (!str || str === '/' || str === '') return null;
   const dmy = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-  if (dmy) return new Date(+dmy[3], +dmy[2]-1, +dmy[1]);
+  if (dmy) {
+    const d = new Date(+dmy[3], +dmy[2]-1, +dmy[1]);
+    d.setHours(12,0,0,0); return d;
+  }
+  const iso = str.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (iso) {
+    const d = new Date(+iso[1], +iso[2]-1, +iso[3]);
+    d.setHours(12,0,0,0); return d;
+  }
   const d = new Date(str);
-  return isNaN(d) ? null : d;
+  if (!isNaN(d)) { d.setHours(12,0,0,0); return d; }
+  return null;
 }
 
 function mapRow(r) {
@@ -276,41 +286,50 @@ function mapRow(r) {
   };
 }
 
+function toDay(date) {
+  if (!date) return null;
+  const d = new Date(date);
+  d.setHours(0,0,0,0);
+  return d;
+}
+
 function getDateRange() {
   const p = document.getElementById('sel-period').value;
   const now = new Date();
   const dow = (now.getDay() + 6) % 7;
   let from = null, to = null, prevFrom = null, prevTo = null;
+
   if (p === 'week') {
     from = new Date(now); from.setDate(now.getDate() - dow); from.setHours(0,0,0,0);
     to = new Date(now); to.setHours(23,59,59,999);
-    prevFrom = new Date(from - 7*86400000);
-    prevTo = new Date(from - 1);
+    prevFrom = new Date(from); prevFrom.setDate(prevFrom.getDate() - 7);
+    prevTo = new Date(from); prevTo.setSeconds(prevTo.getSeconds() - 1);
   } else if (p === 'prevweek') {
     const thisMonday = new Date(now); thisMonday.setDate(now.getDate() - dow); thisMonday.setHours(0,0,0,0);
-    from = new Date(thisMonday - 7*86400000);
-    to = new Date(thisMonday - 1); to.setHours(23,59,59,999);
-    prevFrom = new Date(from - 7*86400000);
-    prevTo = new Date(from - 1);
+    from = new Date(thisMonday); from.setDate(from.getDate() - 7);
+    to = new Date(thisMonday); to.setSeconds(to.getSeconds() - 1);
+    prevFrom = new Date(from); prevFrom.setDate(prevFrom.getDate() - 7);
+    prevTo = new Date(from); prevTo.setSeconds(prevTo.getSeconds() - 1);
   } else if (p === 'month') {
-    from = new Date(now.getFullYear(), now.getMonth(), 1);
+    from = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
     to = new Date(now); to.setHours(23,59,59,999);
-    prevFrom = new Date(now.getFullYear(), now.getMonth()-1, 1);
-    prevTo = new Date(now.getFullYear(), now.getMonth(), 0);
+    prevFrom = new Date(now.getFullYear(), now.getMonth()-1, 1, 0, 0, 0, 0);
+    prevTo = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
   } else if (p === 'prev') {
-    from = new Date(now.getFullYear(), now.getMonth()-1, 1);
-    to = new Date(now.getFullYear(), now.getMonth(), 0); to.setHours(23,59,59,999);
-    prevFrom = new Date(now.getFullYear(), now.getMonth()-2, 1);
-    prevTo = new Date(now.getFullYear(), now.getMonth()-1, 0);
+    from = new Date(now.getFullYear(), now.getMonth()-1, 1, 0, 0, 0, 0);
+    to = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
+    prevFrom = new Date(now.getFullYear(), now.getMonth()-2, 1, 0, 0, 0, 0);
+    prevTo = new Date(now.getFullYear(), now.getMonth()-1, 0, 23, 59, 59, 999);
   } else if (p === 'custom') {
     const f = document.getElementById('date-from').value;
     const t = document.getElementById('date-to').value;
     if (f) { from = new Date(f); from.setHours(0,0,0,0); }
     if (t) { to = new Date(t); to.setHours(23,59,59,999); }
     if (from && to) {
-      const span = to - from;
-      prevFrom = new Date(from - span - 86400000);
-      prevTo = new Date(from - 1);
+      const span = to.getTime() - from.getTime();
+      prevTo = new Date(from.getTime() - 1);
+      prevFrom = new Date(prevTo.getTime() - span);
+      prevFrom.setHours(0,0,0,0);
     }
   }
   return { from, to, prevFrom, prevTo };
@@ -320,8 +339,10 @@ function filterData(from, to) {
   const l = document.getElementById('sel-loc').value;
   const b = document.getElementById('sel-bron').value;
   return ALL_DATA.filter(r => {
-    if (from && r.datum < from) return false;
-    if (to && r.datum > to) return false;
+    if (!r.datum) return false;
+    const d = r.datum;
+    if (from && d < from) return false;
+    if (to && d > to) return false;
     if (l !== 'all' && r.locatie !== l) return false;
     if (b !== 'all' && r.bron !== b) return false;
     return true;
@@ -353,17 +374,17 @@ function delta(cur, prev) {
 
 function renderKPIs(m, mp, comparing) {
   const kpis = [
-    {label:'Leads totaal', val:m.total, rawVal:m.total, prev:mp ? mp.total : 0, cls:''},
-    {label:'Gecontacteerd', val:m.contacted, rawVal:m.contacted, prev:mp ? mp.contacted : 0, cls:'', sub:pct(m.contacted,m.total)+'% van leads'},
-    {label:'Sessie gepland', val:m.sessie, rawVal:m.sessie, prev:mp ? mp.sessie : 0, cls:'', sub:pct(m.sessie,m.total)+'% van leads'},
-    {label:'Show / No-show', val:m.show+' / '+m.noshow, rawVal:m.show, prev:mp ? mp.show : 0, cls:'', sub:pct(m.show,m.show+m.noshow)+'% show rate'},
-    {label:'Won (klanten)', val:m.won, rawVal:m.won, prev:mp ? mp.won : 0, cls:'won', sub:'Win rate '+m.winrate+'%'},
-    {label:'Open (F-Up)', val:m.open, rawVal:m.open, prev:mp ? mp.open : 0, cls:'open', sub:pct(m.open,m.total)+'% van leads'},
-    {label:'Lost', val:m.lost, rawVal:m.lost, prev:mp ? mp.lost : 0, cls:'lost', sub:pct(m.lost,m.total)+'% van leads'},
+    {label:'Leads totaal', val:m.total, rawVal:m.total, prev:mp?mp.total:0, cls:''},
+    {label:'Gecontacteerd', val:m.contacted, rawVal:m.contacted, prev:mp?mp.contacted:0, cls:'', sub:pct(m.contacted,m.total)+'% van leads'},
+    {label:'Sessie gepland', val:m.sessie, rawVal:m.sessie, prev:mp?mp.sessie:0, cls:'', sub:pct(m.sessie,m.total)+'% van leads'},
+    {label:'Show / No-show', val:m.show+' / '+m.noshow, rawVal:m.show, prev:mp?mp.show:0, cls:'', sub:pct(m.show,m.show+m.noshow)+'% show rate'},
+    {label:'Won (klanten)', val:m.won, rawVal:m.won, prev:mp?mp.won:0, cls:'won', sub:'Win rate '+m.winrate+'%'},
+    {label:'Open (F-Up)', val:m.open, rawVal:m.open, prev:mp?mp.open:0, cls:'open', sub:pct(m.open,m.total)+'% van leads'},
+    {label:'Lost', val:m.lost, rawVal:m.lost, prev:mp?mp.lost:0, cls:'lost', sub:pct(m.lost,m.total)+'% van leads'},
   ];
   document.getElementById('kpis').innerHTML = kpis.map(k => {
     const d = (comparing && mp) ? delta(k.rawVal, k.prev) : null;
-    return '<div class="kpi '+k.cls+'"><div class="kpi-label">'+k.label+'</div><div class="kpi-val">'+k.val+'</div>'+(k.sub ? '<div class="kpi-sub">'+k.sub+'</div>' : '')+(d ? '<div class="kpi-compare '+d.cls+'">'+d.text+'</div>' : '')+'</div>';
+    return '<div class="kpi '+k.cls+'"><div class="kpi-label">'+k.label+'</div><div class="kpi-val">'+k.val+'</div>'+(k.sub?'<div class="kpi-sub">'+k.sub+'</div>':'')+(d?'<div class="kpi-compare '+d.cls+'">'+d.text+'</div>':'')+'</div>';
   }).join('');
 }
 
@@ -379,18 +400,18 @@ function renderCostCards(m) {
 
 function renderFunnel(m, mp, comparing) {
   const steps = [
-    {label:'Leads totaal', val:m.total, prev:mp ? mp.total : 0, color:'#4a7fdd'},
-    {label:'Gecontacteerd', val:m.contacted, prev:mp ? mp.contacted : 0, color:'#3a9e72'},
-    {label:'Sessie gepland', val:m.sessie, prev:mp ? mp.sessie : 0, color:'#5cb85c'},
-    {label:'Aanwezig (show)', val:m.show, prev:mp ? mp.show : 0, color:'#e6a020'},
-    {label:'Won (klant)', val:m.won, prev:mp ? mp.won : 0, color:'#1a6b4a'},
+    {label:'Leads totaal', val:m.total, prev:mp?mp.total:0, color:'#4a7fdd'},
+    {label:'Gecontacteerd', val:m.contacted, prev:mp?mp.contacted:0, color:'#3a9e72'},
+    {label:'Sessie gepland', val:m.sessie, prev:mp?mp.sessie:0, color:'#5cb85c'},
+    {label:'Aanwezig (show)', val:m.show, prev:mp?mp.show:0, color:'#e6a020'},
+    {label:'Won (klant)', val:m.won, prev:mp?mp.won:0, color:'#1a6b4a'},
   ];
-  const maxVal = Math.max(m.total, mp ? mp.total : 0) || 1;
+  const maxVal = Math.max(m.total, mp?mp.total:0) || 1;
   document.getElementById('funnel').innerHTML = steps.map(s => {
     const p = Math.round(s.val/maxVal*100);
-    const pp = comparing && mp ? Math.round(s.prev/maxVal*100) : 0;
+    const pp = (comparing && mp) ? Math.round(s.prev/maxVal*100) : 0;
     const d = (comparing && mp) ? delta(s.val, s.prev) : null;
-    return '<div class="funnel-row"><div class="funnel-label">'+s.label+'</div><div class="funnel-bar-wrap">'+(comparing && mp ? '<div class="funnel-bar-compare" style="width:'+Math.max(pp,1)+'%;background:'+s.color+'"></div>' : '')+'<div class="funnel-bar" style="width:'+Math.max(p,1)+'%;background:'+s.color+'"><span>'+s.val+'</span></div></div><div class="funnel-pct">'+pct(s.val,m.total)+'%</div>'+(d ? '<div class="funnel-delta '+d.cls+'">'+d.text+'</div>' : '')+'</div>';
+    return '<div class="funnel-row"><div class="funnel-label">'+s.label+'</div><div class="funnel-bar-wrap">'+(comparing&&mp?'<div class="funnel-bar-compare" style="width:'+Math.max(pp,1)+'%;background:'+s.color+'"></div>':'')+'<div class="funnel-bar" style="width:'+Math.max(p,1)+'%;background:'+s.color+'"><span>'+s.val+'</span></div></div><div class="funnel-pct">'+pct(s.val,m.total)+'%</div>'+(d?'<div class="funnel-delta '+d.cls+'">'+d.text+'</div>':'')+'</div>';
   }).join('');
 }
 
@@ -408,16 +429,16 @@ function renderCharts(data) {
   if (chartStatus) { chartStatus.destroy(); chartStatus = null; }
   chartLeads = new Chart(document.getElementById('chart-leads'), {
     type: 'bar',
-    data: { labels: days.map(d => d.slice(5)), datasets: [{ label:'Leads', data: days.map(d=>byDay[d]), backgroundColor:'#b8ccf0', borderColor:'#4a7fdd', borderWidth:1, borderRadius:3 }] },
+    data: { labels: days.map(d=>d.slice(5)), datasets: [{ label:'Leads', data:days.map(d=>byDay[d]), backgroundColor:'#b8ccf0', borderColor:'#4a7fdd', borderWidth:1, borderRadius:3 }] },
     options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{ x:{ticks:{font:{size:10,family:'DM Mono'},maxRotation:45,autoSkip:true,maxTicksLimit:16},grid:{display:false}}, y:{ticks:{font:{size:10,family:'DM Mono'},stepSize:1},grid:{color:'#f0eeea'}} } }
   });
   const colors = ['#4a7fdd','#e6a020','#d94f4f','#a0a09a'];
   chartStatus = new Chart(document.getElementById('chart-status'), {
     type: 'doughnut',
-    data: { labels: Object.keys(sc), datasets: [{ data: Object.values(sc), backgroundColor: colors, borderWidth:2, borderColor:'#fff' }] },
+    data: { labels:Object.keys(sc), datasets:[{ data:Object.values(sc), backgroundColor:colors, borderWidth:2, borderColor:'#fff' }] },
     options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, cutout:'65%' }
   });
-  document.getElementById('status-legend').innerHTML = Object.keys(sc).map((l,i) =>
+  document.getElementById('status-legend').innerHTML = Object.keys(sc).map((l,i)=>
     '<div class="legend-item"><div class="legend-dot" style="background:'+colors[i]+'"></div>'+l+' ('+sc[l]+')</div>'
   ).join('');
 }
@@ -436,8 +457,8 @@ function renderTable(data, groupKey, elId) {
     if (r.contacted === 'F-Up') g.open++;
     if (r.contacted === 'Lost') g.lost++;
   });
-  const rows = Object.entries(groups).sort((a,b)=>b[1].total-a[1].total).map(([k,g]) =>
-    '<tr><td style="font-weight:500">'+k+'</td><td>'+g.total+'</td><td>'+g.contacted+' <span style="color:var(--muted);font-size:11px;font-family:\'DM Mono\',monospace">('+pct(g.contacted,g.total)+'%)</span></td><td>'+g.sessie+'</td><td>'+g.show+'</td><td><span class="badge b-won">'+g.won+'</span></td><td><span class="badge b-open">'+g.open+'</span></td><td><span class="badge b-lost">'+g.lost+'</span></td><td style="font-family:\'DM Mono\',monospace;font-weight:500">'+pct(g.won,g.total)+'%</td></tr>'
+  const rows = Object.entries(groups).sort((a,b)=>b[1].total-a[1].total).map(([k,g])=>
+    '<tr><td style="font-weight:500">'+k+'</td><td>'+g.total+'</td><td>'+g.contacted+' <span style="color:var(--muted);font-size:11px">('+pct(g.contacted,g.total)+'%)</span></td><td>'+g.sessie+'</td><td>'+g.show+'</td><td><span class="badge b-won">'+g.won+'</span></td><td><span class="badge b-open">'+g.open+'</span></td><td><span class="badge b-lost">'+g.lost+'</span></td><td style="font-family:\'DM Mono\',monospace;font-weight:500">'+pct(g.won,g.total)+'%</td></tr>'
   ).join('');
   document.getElementById(elId).innerHTML = '<thead><tr><th>'+(groupKey==='locatie'?'Locatie':'Bron')+'</th><th>Leads</th><th>Contacted</th><th>Sessie</th><th>Show</th><th>Won</th><th>Open</th><th>Lost</th><th>Win rate</th></tr></thead><tbody>'+rows+'</tbody>';
 }
@@ -457,7 +478,7 @@ function update() {
   const banner = document.getElementById('compare-banner');
   if (comparing && prevFrom && prevTo) {
     banner.className = 'compare-banner visible';
-    banner.textContent = 'Vergelijking: '+(formatDate(from)||'begin')+' – '+(formatDate(to)||'nu')+' vs vorige periode '+formatDate(prevFrom)+' – '+formatDate(prevTo);
+    banner.textContent = 'Vergelijking: '+(formatDate(from)||'begin')+' - '+(formatDate(to)||'nu')+' vs vorige periode '+formatDate(prevFrom)+' - '+formatDate(prevTo);
   } else {
     banner.className = 'compare-banner';
   }
