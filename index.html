@@ -46,8 +46,6 @@
   .logo span { color: var(--accent); }
   .last-updated { font-size: 12px; color: var(--muted); font-family: 'DM Mono', monospace; }
   .container { max-width: 1200px; margin: 0 auto; padding: 24px 32px; }
-
-  /* Filters */
   .filters {
     display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 24px;
     background: var(--surface); border: 1px solid var(--border);
@@ -66,8 +64,6 @@
   .filters select:focus { outline: none; border-color: var(--accent); }
   .filter-group { display: flex; align-items: center; gap: 6px; }
   .filter-sep { width: 1px; height: 24px; background: var(--border); margin: 0 4px; }
-
-  /* Cost input */
   .cost-input-wrap { margin-left: auto; display: flex; align-items: center; gap: 8px; }
   .cost-input-wrap label { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
   .cost-input-wrap input {
@@ -76,8 +72,6 @@
     background: var(--bg); color: var(--text); width: 110px;
   }
   .cost-input-wrap input:focus { outline: none; border-color: var(--accent); }
-
-  /* KPI Grid */
   .kpi-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
@@ -96,8 +90,6 @@
   .kpi.open .kpi-val { color: var(--blue); }
   .kpi.lost { border-color: #f0b8b8; background: var(--red-bg); }
   .kpi.lost .kpi-val { color: var(--red); }
-
-  /* Cost cards */
   .cost-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
@@ -109,8 +101,6 @@
   }
   .cost-card .kpi-label { color: var(--amber); }
   .cost-card .kpi-val { font-size: 20px; color: var(--amber); }
-
-  /* Funnel */
   .section {
     background: var(--surface); border: 1px solid var(--border);
     border-radius: 10px; padding: 18px 20px; margin-bottom: 16px;
@@ -130,14 +120,10 @@
   }
   .funnel-bar span { font-size: 12px; font-weight: 600; color: #fff; font-family: 'DM Mono', monospace; }
   .funnel-pct { font-size: 12px; font-family: 'DM Mono', monospace; color: var(--muted); width: 40px; text-align: right; flex-shrink: 0; }
-
-  /* Charts */
   .charts-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
   .chart-legend { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
   .legend-item { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--muted); }
   .legend-dot { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
-
-  /* Tables */
   table { width: 100%; border-collapse: collapse; font-size: 13px; }
   th {
     text-align: left; padding: 8px 12px;
@@ -156,8 +142,6 @@
   .b-won { background: var(--green-bg); color: var(--green); }
   .b-open { background: var(--blue-bg); color: var(--blue); }
   .b-lost { background: var(--red-bg); color: var(--red); }
-
-  /* Loading / Error */
   .state-msg {
     text-align: center; padding: 60px 20px;
     color: var(--muted); font-size: 14px;
@@ -168,7 +152,6 @@
     animation: spin .7s linear infinite; margin: 0 auto 12px;
   }
   @keyframes spin { to { transform: rotate(360deg); } }
-
   @media(max-width: 768px) {
     .container { padding: 16px; }
     .charts-row { grid-template-columns: 1fr; }
@@ -236,13 +219,13 @@
       <div class="section">
         <div class="section-title">Leads per dag</div>
         <div style="position:relative;height:200px">
-          <canvas id="chart-leads" role="img" aria-label="Leads per dag">Leads per dag staafgrafiek.</canvas>
+          <canvas id="chart-leads"></canvas>
         </div>
       </div>
       <div class="section">
         <div class="section-title">Status verdeling</div>
         <div style="position:relative;height:160px">
-          <canvas id="chart-status" role="img" aria-label="Status verdeling">Status verdeling donut.</canvas>
+          <canvas id="chart-status"></canvas>
         </div>
         <div class="chart-legend" id="status-legend"></div>
       </div>
@@ -276,31 +259,54 @@ const startOfPrevMonth = new Date(today.getFullYear(), today.getMonth()-1, 1);
 const endOfPrevMonth = new Date(today.getFullYear(), today.getMonth(), 0);
 
 function parseCSV(text) {
-  const lines = text.trim().split('\n');
-  const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g,''));
-  return lines.slice(1).map(line => {
-    const vals = line.match(/(".*?"|[^,]+|(?<=,)(?=,)|^(?=,)|(?<=,)$)/g) || [];
+  const rows = [];
+  let row = [], field = '', inQuotes = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i], next = text[i+1];
+    if (inQuotes) {
+      if (ch === '"' && next === '"') { field += '"'; i++; }
+      else if (ch === '"') { inQuotes = false; }
+      else { field += ch; }
+    } else {
+      if (ch === '"') { inQuotes = true; }
+      else if (ch === ',') { row.push(field.trim()); field = ''; }
+      else if (ch === '\n' || (ch === '\r' && next === '\n')) {
+        if (ch === '\r') i++;
+        row.push(field.trim()); rows.push(row); row = []; field = '';
+      } else { field += ch; }
+    }
+  }
+  if (field || row.length) { row.push(field.trim()); rows.push(row); }
+  if (rows.length < 2) return [];
+  const headers = rows[0].map(h => h.replace(/^\uFEFF/, ''));
+  return rows.slice(1).map(vals => {
     const obj = {};
-    headers.forEach((h, i) => { obj[h] = (vals[i]||'').replace(/^"|"$/g,'').trim(); });
+    headers.forEach((h, i) => { obj[h] = (vals[i] || '').trim(); });
     return obj;
   });
 }
 
 function parseDate(str) {
   if (!str || str === '/' || str === '') return null;
+  const dmyMatch = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (dmyMatch) return new Date(+dmyMatch[3], +dmyMatch[2]-1, +dmyMatch[1]);
   const d = new Date(str);
   return isNaN(d) ? null : d;
 }
 
 function mapRow(r) {
+  const get = (key) => {
+    const found = Object.keys(r).find(k => k.trim().toLowerCase() === key.toLowerCase());
+    return found ? (r[found] || '').trim() : '';
+  };
   return {
-    locatie: r['Vitology locatie'] || '',
-    bron: r['Bron'] || '',
-    datum: parseDate(r['Registratiedatum']),
-    contacted: r['Contacted?'] || '',
-    proefsessie: parseDate(r['Datum proefsessie']),
-    noshow: r['No show?'] || '',
-    factuurdatum: parseDate(r['eerste factuurdatum']),
+    locatie: get('Vitology locatie'),
+    bron: get('Bron'),
+    datum: parseDate(get('Registratiedatum')),
+    contacted: get('Contacted?'),
+    proefsessie: parseDate(get('Datum proefsessie')),
+    noshow: get('No show?'),
+    factuurdatum: parseDate(get('eerste factuurdatum')),
   };
 }
 
@@ -310,7 +316,7 @@ async function loadData() {
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const text = await res.text();
     const rows = parseCSV(text);
-    ALL_DATA = rows.map(mapRow).filter(r => r.datum && r.contacted);
+    ALL_DATA = rows.map(mapRow).filter(r => r.datum);
     document.getElementById('last-updated').textContent = 'Bijgewerkt: ' + new Date().toLocaleTimeString('nl-BE');
     document.getElementById('loading').style.display = 'none';
     document.getElementById('dashboard').style.display = 'block';
