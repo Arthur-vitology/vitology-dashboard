@@ -52,32 +52,34 @@ header{background:var(--surf);border-bottom:1px solid var(--bdr);padding:14px 28
 .mode-btn{padding:3px 8px;border-radius:4px;border:none;background:transparent;font-size:11px;font-weight:500;color:var(--muted);cursor:pointer;font-family:'DM Sans',sans-serif}
 .mode-btn.active{background:var(--surf);color:var(--txt);border:1px solid var(--bdr)}
 .hdr-controls{display:flex;gap:6px;align-items:center}
+.export-btn{padding:4px 10px;border:1px solid var(--bdr);border-radius:6px;background:var(--bg);font-size:11px;font-weight:500;color:var(--muted);cursor:pointer;font-family:'DM Sans',sans-serif;white-space:nowrap}
+.export-btn:hover{background:var(--surf);color:var(--txt)}
 .tbl-wrap{overflow-x:auto}
 table{width:100%;border-collapse:collapse;font-size:12px}
-th{text-align:left;padding:6px 10px;border-bottom:1px solid var(--bdr);font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;white-space:nowrap}
+th{text-align:left;padding:7px 10px;border-bottom:2px solid var(--bdr);font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;white-space:nowrap;background:var(--bg)}
 td{padding:6px 10px;border-bottom:1px solid var(--bdr);white-space:nowrap}
 tr:last-child td{border-bottom:none}
-tbody tr:hover{background:var(--bg)}
+tbody tr:hover{background:#fafaf8}
 .badge{display:inline-block;padding:1px 7px;border-radius:20px;font-size:10px;font-weight:600;font-family:'DM Mono',monospace}
 .b-won{background:var(--gbg);color:var(--green)}.b-open{background:var(--bbg);color:var(--blue)}.b-lost{background:var(--rbg);color:var(--red)}
-
-/* Drill-down tabel stijlen */
-.drill-row{cursor:pointer;user-select:none}
-.drill-row:hover td{background:var(--bg)}
-.drill-row td:first-child{font-weight:600}
-.drill-indent-1 td:first-child{padding-left:24px}
-.drill-indent-2 td:first-child{padding-left:40px}
-.drill-indent-3 td:first-child{padding-left:56px}
-.drill-arrow{display:inline-block;width:14px;font-size:9px;color:var(--muted);transition:transform .15s}
-.drill-arrow.open{transform:rotate(90deg)}
-.drill-child{display:none}
-.drill-child.visible{display:table-row}
-.drill-lbl-jaar td{background:var(--bg);font-size:12px}
-.drill-lbl-kwartaal td{font-size:12px}
-.drill-lbl-maand td{font-size:11px;color:var(--muted)}
-.drill-lbl-week td{font-size:11px;color:var(--muted)}
-.drill-lbl-dag td{font-size:11px;color:var(--muted)}
-
+.dr{cursor:pointer;user-select:none}
+.dr:hover td{background:#fafaf8}
+.dr-y td{font-size:13px;font-weight:700;background:var(--bg);border-top:1px solid var(--bdr)}
+.dr-q td{font-size:12px;font-weight:600}
+.dr-m td{font-size:12px;color:var(--muted)}
+.dr-w td{font-size:11px;color:var(--muted)}
+.dr-d td{font-size:11px;color:var(--muted)}
+.dr-m td:first-child{padding-left:28px}
+.dr-w td:first-child{padding-left:44px}
+.dr-d td:first-child{padding-left:60px}
+.dr-q td:first-child{padding-left:14px}
+.dc{display:none}.dc.on{display:table-row}
+.arr{display:inline-block;font-size:9px;color:var(--muted);margin-right:4px;transition:transform .15s;width:10px}
+.arr.open{transform:rotate(90deg)}
+.tbl-total td{font-weight:700;border-top:2px solid var(--bdr);border-bottom:none;background:var(--surf)}
+.tbl-delta td{font-size:10px;font-family:'DM Mono',monospace;border-bottom:none;color:var(--muted);padding:3px 10px}
+.tbl-delta td:first-child{color:var(--muted);font-weight:500;font-family:'DM Sans',sans-serif}
+.delta-up{color:var(--green)!important}.delta-dn{color:var(--red)!important}
 .two-col{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
 .charts-row{display:grid;grid-template-columns:2fr 1fr;gap:12px;margin-bottom:12px}
 .chart-legend{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
@@ -137,22 +139,26 @@ tbody tr:hover{background:var(--bg)}
     <div class="charts-row">
       <div class="sec">
         <div class="sec-hdr"><div class="sec-title">Leads per dag</div></div>
-        <div style="position:relative;height:180px"><canvas id="cl" role="img" aria-label="Leads per dag staafgrafiek">Leads per dag.</canvas></div>
+        <div style="position:relative;height:180px"><canvas id="cl" role="img" aria-label="Leads per dag">Leads per dag.</canvas></div>
       </div>
       <div class="sec">
         <div class="sec-hdr"><div class="sec-title">Status verdeling</div></div>
-        <div style="position:relative;height:140px"><canvas id="cs" role="img" aria-label="Status verdeling donut">Status verdeling.</canvas></div>
+        <div style="position:relative;height:140px"><canvas id="cs" role="img" aria-label="Status verdeling">Status verdeling.</canvas></div>
         <div class="chart-legend" id="legend"></div>
       </div>
     </div>
     <div class="sec">
       <div class="sec-hdr">
-        <div class="sec-title">Funnel per periode</div>
+        <div>
+          <div class="sec-title">Leads · alle segmenten</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:2px">Klik op een rij om uit te klappen · meest recent bovenaan</div>
+        </div>
         <div class="hdr-controls">
           <div class="mode-btns">
             <button class="mode-btn active" id="mAbs" onclick="setMode('abs')">Absoluut</button>
             <button class="mode-btn" id="mPct" onclick="setMode('pct')">%</button>
           </div>
+          <button class="export-btn" onclick="exportCSV()">↓ Export CSV</button>
         </div>
       </div>
       <div class="tbl-wrap"><table id="ptbl"></table></div>
@@ -190,15 +196,11 @@ function parseCSV(txt){
 }
 
 function pd(s){
-  if(!s||s==='/'||s==='')return null;
-  s=s.trim();
-  let m=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-  if(m)return mkd(+m[3],+m[2]-1,+m[1]);
-  m=s.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/);
-  if(m)return mkd(+m[3],+m[2]-1,+m[1]);
-  m=s.match(/^(\d{4})-(\d{2})-(\d{2})/);
-  if(m)return mkd(+m[1],+m[2]-1,+m[3]);
-  if(/^\d+$/.test(s)){const serial=+s;if(serial>40000&&serial<60000){const d=new Date((serial-25569)*86400000);return mkd(d.getUTCFullYear(),d.getUTCMonth(),d.getUTCDate());}}
+  if(!s||s==='/'||s==='')return null;s=s.trim();
+  let m=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);if(m)return mkd(+m[3],+m[2]-1,+m[1]);
+  m=s.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/);if(m)return mkd(+m[3],+m[2]-1,+m[1]);
+  m=s.match(/^(\d{4})-(\d{2})-(\d{2})/);if(m)return mkd(+m[1],+m[2]-1,+m[3]);
+  if(/^\d+$/.test(s)){const sr=+s;if(sr>40000&&sr<60000){const d=new Date((sr-25569)*86400000);return mkd(d.getUTCFullYear(),d.getUTCMonth(),d.getUTCDate());}}
   return null;
 }
 function mkd(y,m,d){const dt=new Date(y,m,d,12,0,0,0);return isNaN(dt)?null:dt;}
@@ -210,31 +212,22 @@ function mapRow(r){
 }
 
 function getRange(){
-  const p=document.getElementById('sp').value;
-  const now=new Date();
-  const dow=(now.getDay()+6)%7;
+  const p=document.getElementById('sp').value,now=new Date(),dow=(now.getDay()+6)%7;
   let from=null,to=null,pf=null,pt=null;
   if(p==='week'){
     from=new Date(now.getFullYear(),now.getMonth(),now.getDate()-dow,0,0,0);
     to=new Date(now.getFullYear(),now.getMonth(),now.getDate(),23,59,59);
-    pf=new Date(from);pf.setDate(pf.getDate()-7);
-    pt=new Date(from);pt.setDate(pt.getDate()-1);pt.setHours(23,59,59);
+    pf=new Date(from);pf.setDate(pf.getDate()-7);pt=new Date(from);pt.setDate(pt.getDate()-1);pt.setHours(23,59,59);
   }else if(p==='prevweek'){
     const mon=new Date(now.getFullYear(),now.getMonth(),now.getDate()-dow,0,0,0);
-    from=new Date(mon);from.setDate(from.getDate()-7);
-    to=new Date(mon);to.setDate(to.getDate()-1);to.setHours(23,59,59);
-    pf=new Date(from);pf.setDate(pf.getDate()-7);
-    pt=new Date(from);pt.setDate(pt.getDate()-1);pt.setHours(23,59,59);
+    from=new Date(mon);from.setDate(from.getDate()-7);to=new Date(mon);to.setDate(to.getDate()-1);to.setHours(23,59,59);
+    pf=new Date(from);pf.setDate(pf.getDate()-7);pt=new Date(from);pt.setDate(pt.getDate()-1);pt.setHours(23,59,59);
   }else if(p==='month'){
-    from=new Date(now.getFullYear(),now.getMonth(),1,0,0,0);
-    to=new Date(now.getFullYear(),now.getMonth(),now.getDate(),23,59,59);
-    pf=new Date(now.getFullYear(),now.getMonth()-1,1,0,0,0);
-    pt=new Date(now.getFullYear(),now.getMonth(),0,23,59,59);
+    from=new Date(now.getFullYear(),now.getMonth(),1,0,0,0);to=new Date(now.getFullYear(),now.getMonth(),now.getDate(),23,59,59);
+    pf=new Date(now.getFullYear(),now.getMonth()-1,1,0,0,0);pt=new Date(now.getFullYear(),now.getMonth(),0,23,59,59);
   }else if(p==='prev'){
-    from=new Date(now.getFullYear(),now.getMonth()-1,1,0,0,0);
-    to=new Date(now.getFullYear(),now.getMonth(),0,23,59,59);
-    pf=new Date(now.getFullYear(),now.getMonth()-2,1,0,0,0);
-    pt=new Date(now.getFullYear(),now.getMonth()-1,0,23,59,59);
+    from=new Date(now.getFullYear(),now.getMonth()-1,1,0,0,0);to=new Date(now.getFullYear(),now.getMonth(),0,23,59,59);
+    pf=new Date(now.getFullYear(),now.getMonth()-2,1,0,0,0);pt=new Date(now.getFullYear(),now.getMonth()-1,0,23,59,59);
   }else if(p==='custom'){
     const fv=document.getElementById('df').value,tv=document.getElementById('dt').value;
     if(fv){const[y,mo,d]=fv.split('-');from=new Date(+y,+mo-1,+d,0,0,0);}
@@ -273,6 +266,11 @@ function dlt(cur,prv){
   const d=cur-prv,sg=d>=0?'+':'';
   return{txt:sg+d+' vs vorige',cls:d>0?'up':d<0?'dn':'eq'};
 }
+function dltPct(cur,prv){
+  if(prv===0)return{txt:'—',cls:'eq'};
+  const d=Math.round((cur-prv)/prv*100),sg=d>=0?'+':'';
+  return{txt:sg+d+'%',cls:d>0?'up':d<0?'dn':'eq'};
+}
 function cpp(cost,n){return n>0&&cost>0?'€ '+Math.round(cost/n):'€ —';}
 
 function renderKPIs(m,mp,cmp){
@@ -307,27 +305,23 @@ function renderCharts(data){
 function getWeekNum(d){
   const tmp=new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate()));
   const dow=tmp.getUTCDay()||7;tmp.setUTCDate(tmp.getUTCDate()+4-dow);
-  const y=tmp.getUTCFullYear();
-  return Math.ceil((((tmp-new Date(Date.UTC(y,0,1)))/86400000)+1)/7);
+  return Math.ceil((((tmp-new Date(Date.UTC(tmp.getUTCFullYear(),0,1)))/86400000)+1)/7);
 }
 
 function aggData(rows){
   const g={t:0,c:0,s:0,sh:0,ns:0,w:0,o:0,l:0};
   rows.forEach(r=>{
-    g.t++;
-    if(['Ja','Lost','F-Up'].includes(r.contacted))g.c++;
-    if(r.proefsessie)g.s++;
-    if(r.noshow==='Aanwezig')g.sh++;
-    if(r.noshow==='No show')g.ns++;
-    if(r.factuurdatum)g.w++;
-    if(r.contacted==='F-Up')g.o++;
-    if(r.contacted==='Lost')g.l++;
+    g.t++;if(['Ja','Lost','F-Up'].includes(r.contacted))g.c++;
+    if(r.proefsessie)g.s++;if(r.noshow==='Aanwezig')g.sh++;
+    if(r.noshow==='No show')g.ns++;if(r.factuurdatum)g.w++;
+    if(r.contacted==='F-Up')g.o++;if(r.contacted==='Lost')g.l++;
   });
   return g;
 }
 
-function renderCells(g,cost){
-  const isAbs=curMode==='abs';
+let csvExportData=[];
+
+function renderCells(g,cost,isAbs){
   if(isAbs){
     return'<td>'+g.t+'</td><td>'+g.c+'</td><td>'+g.s+'</td><td>'+g.sh+'</td>'+
       '<td><span class="badge b-won">'+g.w+'</span></td>'+
@@ -348,97 +342,92 @@ function renderCells(g,cost){
   }
 }
 
+function deltaRow(label,cur,prv){
+  const keys=['t','c','s','sh','w','o','l'];
+  const cells=keys.map(k=>{
+    const dp=dltPct(cur[k],prv[k]);
+    return'<td class="'+(dp.cls==='up'?'delta-up':dp.cls==='dn'?'delta-dn':'')+'">'+dp.txt+'</td>';
+  });
+  return'<tr class="tbl-delta"><td>'+label+'</td><td></td>'+cells.join('')+'<td></td><td></td></tr>';
+}
+
 function renderDrillTable(data){
   const cost=parseFloat(document.getElementById('ac').value)||0;
+  const isAbs=curMode==='abs';
   const MN=['Jan','Feb','Mrt','Apr','Mei','Jun','Jul','Aug','Sep','Okt','Nov','Dec'];
-
-  // Build hierarchy: jaar -> kwartaal -> maand -> week -> dag
   const tree={};
   data.forEach(r=>{
-    const d=r.datum;
-    const y=d.getFullYear();
-    const mo=d.getMonth();
-    const q=Math.floor(mo/3);
-    const day=d.getDate();
-    const dow=(d.getDay()+6)%7;
-    const mon=new Date(d);mon.setDate(day-dow);mon.setHours(12);
+    const d=r.datum,y=d.getFullYear(),mo=d.getMonth(),q=Math.floor(mo/3),day=d.getDate();
     const wk=getWeekNum(d);
-    const wkey='W'+wk+' '+y;
+    const wkey='W'+String(wk).padStart(2,'0')+' '+y;
     const dkey=String(day).padStart(2,'0')+'/'+String(mo+1).padStart(2,'0')+'/'+y;
-
-    if(!tree[y])tree[y]={rows:[],q:{}};
-    tree[y].rows.push(r);
-    if(!tree[y].q[q])tree[y].q[q]={rows:[],m:{}};
-    tree[y].q[q].rows.push(r);
-    if(!tree[y].q[q].m[mo])tree[y].q[q].m[mo]={rows:[],w:{}};
-    tree[y].q[q].m[mo].rows.push(r);
-    if(!tree[y].q[q].m[mo].w[wkey])tree[y].q[q].m[mo].w[wkey]={rows:[],d:{}};
-    tree[y].q[q].m[mo].w[wkey].rows.push(r);
+    if(!tree[y])tree[y]={rows:[],q:{}};tree[y].rows.push(r);
+    if(!tree[y].q[q])tree[y].q[q]={rows:[],m:{}};tree[y].q[q].rows.push(r);
+    if(!tree[y].q[q].m[mo])tree[y].q[q].m[mo]={rows:[],w:{}};tree[y].q[q].m[mo].rows.push(r);
+    if(!tree[y].q[q].m[mo].w[wkey])tree[y].q[q].m[mo].w[wkey]={rows:[],d:{}};tree[y].q[q].m[mo].w[wkey].rows.push(r);
     if(!tree[y].q[q].m[mo].w[wkey].d[dkey])tree[y].q[q].m[mo].w[wkey].d[dkey]={rows:[]};
     tree[y].q[q].m[mo].w[wkey].d[dkey].rows.push(r);
   });
-
   const thd='<thead><tr><th>Periode</th><th>Leads</th><th>Contacted</th><th>Sessie</th><th>Show</th><th>Won</th><th>Open</th><th>Lost</th><th>Win rate</th><th>Kost/lead</th></tr></thead>';
-  let html='';
-  let rowId=0;
-
+  let html='',rid=0;
+  csvExportData=[['Periode','Leads','Contacted','Sessie','Show','Won','Open','Lost','Win rate','Kost/lead']];
+  const allYears=Object.keys(tree).sort();
+  const curYear=allYears[allYears.length-1];
+  const prevYear=allYears[allYears.length-2];
   Object.keys(tree).sort().reverse().forEach(y=>{
-    const yid='y'+rowId++;
+    const yid='y'+(rid++);
     const yg=aggData(tree[y].rows);
-    html+=`<tr class="drill-row drill-lbl-jaar" onclick="toggleDrill('${yid}')">
-      <td><span class="drill-arrow" id="arr-${yid}">▶</span> ${y}</td>${renderCells(yg,cost)}</tr>`;
-
-    Object.keys(tree[y].q).sort().forEach(q=>{
-      const qid='q'+rowId++;
+    csvExportData.push([y,yg.t,yg.c,yg.s,yg.sh,yg.w,yg.o,yg.l,pct(yg.w,yg.t)+'%',cpp(cost,yg.t)]);
+    html+=`<tr class="dr dr-y" onclick="toggleDrill('${yid}')"><td><span class="arr" id="a-${yid}">▶</span>${y}</td>${renderCells(yg,cost,isAbs)}</tr>`;
+    Object.keys(tree[y].q).sort((a,b)=>+b-+a).forEach(q=>{
+      const qid='q'+(rid++);
       const qlbl='Q'+(+q+1)+' '+y;
       const qg=aggData(tree[y].q[q].rows);
-      html+=`<tr class="drill-row drill-child drill-lbl-kwartaal drill-indent-1" id="child-${yid}" onclick="toggleDrill('${qid}')">
-        <td><span class="drill-arrow" id="arr-${qid}">▶</span> ${qlbl}</td>${renderCells(qg,cost)}</tr>`;
-
+      csvExportData.push([qlbl,qg.t,qg.c,qg.s,qg.sh,qg.w,qg.o,qg.l,pct(qg.w,qg.t)+'%',cpp(cost,qg.t)]);
+      html+=`<tr class="dr dr-q dc" id="c-${yid}" onclick="toggleDrill('${qid}')"><td><span class="arr" id="a-${qid}">▶</span>${qlbl}</td>${renderCells(qg,cost,isAbs)}</tr>`;
       Object.keys(tree[y].q[q].m).sort((a,b)=>+b-+a).forEach(mo=>{
-        const mid='m'+rowId++;
+        const mid='m'+(rid++);
         const mlbl=MN[+mo]+' '+y;
         const mg=aggData(tree[y].q[q].m[mo].rows);
-        html+=`<tr class="drill-row drill-child drill-lbl-maand drill-indent-2" id="child-${qid}" onclick="toggleDrill('${mid}')">
-          <td><span class="drill-arrow" id="arr-${mid}">▶</span> ${mlbl}</td>${renderCells(mg,cost)}</tr>`;
-
+        csvExportData.push([mlbl,mg.t,mg.c,mg.s,mg.sh,mg.w,mg.o,mg.l,pct(mg.w,mg.t)+'%',cpp(cost,mg.t)]);
+        html+=`<tr class="dr dr-m dc" id="c-${qid}" onclick="toggleDrill('${mid}')"><td><span class="arr" id="a-${mid}">▶</span>— ${mlbl}</td>${renderCells(mg,cost,isAbs)}</tr>`;
         Object.keys(tree[y].q[q].m[mo].w).sort().reverse().forEach(wk=>{
-          const wid='w'+rowId++;
+          const wid='w'+(rid++);
           const wg=aggData(tree[y].q[q].m[mo].w[wk].rows);
-          html+=`<tr class="drill-row drill-child drill-lbl-week drill-indent-3" id="child-${mid}" onclick="toggleDrill('${wid}')">
-            <td><span class="drill-arrow" id="arr-${wid}">▶</span> ${wk}</td>${renderCells(wg,cost)}</tr>`;
-
+          html+=`<tr class="dr dr-w dc" id="c-${mid}" onclick="toggleDrill('${wid}')"><td><span class="arr" id="a-${wid}">▶</span>— ${wk}</td>${renderCells(wg,cost,isAbs)}</tr>`;
           Object.keys(tree[y].q[q].m[mo].w[wk].d).sort().reverse().forEach(dk=>{
             const dg=aggData(tree[y].q[q].m[mo].w[wk].d[dk].rows);
-            html+=`<tr class="drill-child drill-lbl-dag drill-indent-3" id="child-${wid}" style="padding-left:70px">
-              <td style="padding-left:70px">${dk}</td>${renderCells(dg,cost)}</tr>`;
+            html+=`<tr class="dr-d dc" id="c-${wid}"><td>— ${dk}</td>${renderCells(dg,cost,isAbs)}</tr>`;
           });
         });
       });
     });
   });
-
+  const totG=aggData(data);
+  html+=`<tr class="tbl-total"><td>Totaal</td>${renderCells(totG,cost,isAbs)}</tr>`;
+  if(comparing){
+    const{from,to,pf,pt}=getRange();
+    const prevData=filt(pf,pt);
+    if(prevData.length>0)html+=deltaRow('Δ% vs vorige periode',totG,aggData(prevData));
+  }
+  if(curYear&&prevYear)html+=deltaRow('Δ% vs vorig jaar',aggData(tree[curYear].rows),aggData(tree[prevYear].rows));
   document.getElementById('ptbl').innerHTML=thd+'<tbody>'+html+'</tbody>';
 }
 
 function toggleDrill(id){
-  const arr=document.getElementById('arr-'+id);
-  const children=document.querySelectorAll('#child-'+id);
+  const arr=document.getElementById('a-'+id);
   const isOpen=arr&&arr.classList.contains('open');
-  if(arr){arr.classList.toggle('open',!isOpen);}
-  children.forEach(c=>{
+  if(arr)arr.classList.toggle('open',!isOpen);
+  document.querySelectorAll('#c-'+id).forEach(c=>{
     if(isOpen){
-      c.classList.remove('visible');
-      // also close nested children
-      const nestedArr=c.querySelector('.drill-arrow');
-      if(nestedArr&&nestedArr.classList.contains('open')){
-        nestedArr.classList.remove('open');
-        const nestedId=nestedArr.id.replace('arr-','');
-        document.querySelectorAll('#child-'+nestedId).forEach(nc=>nc.classList.remove('visible'));
+      c.classList.remove('on');
+      const na=c.querySelector('.arr');
+      if(na&&na.classList.contains('open')){
+        na.classList.remove('open');
+        const nid=na.id.replace('a-','');
+        document.querySelectorAll('#c-'+nid).forEach(nc=>nc.classList.remove('on'));
       }
-    }else{
-      c.classList.add('visible');
-    }
+    }else{c.classList.add('on');}
   });
 }
 
@@ -447,6 +436,14 @@ function setMode(m){
   document.getElementById('mAbs').classList.toggle('active',m==='abs');
   document.getElementById('mPct').classList.toggle('active',m==='pct');
   renderDrillTable(currentData);
+}
+
+function exportCSV(){
+  const rows=csvExportData.map(r=>r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(','));
+  const blob=new Blob([rows.join('\n')],{type:'text/csv;charset=utf-8;'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;a.download='vitology_crm.csv';a.click();
+  URL.revokeObjectURL(url);
 }
 
 function renderGroupTable(data,key,id){
@@ -471,7 +468,7 @@ function update(){
   const m=calc(data),mp=prev?calc(prev):null;
   currentData=data;
   const ban=document.getElementById('cb');
-  if(comparing&&pf&&pt){ban.className='cmp-banner on';ban.textContent='Vergelijking: '+(fmtD(from)||'begin')+' - '+(fmtD(to)||'nu')+' vs '+fmtD(pf)+' - '+fmtD(pt);}
+  if(comparing&&pf&&pt){ban.className='cmp-banner on';ban.textContent='Vergelijking: '+(fmtD(from)||'begin')+' – '+(fmtD(to)||'nu')+' vs '+fmtD(pf)+' – '+fmtD(pt);}
   else{ban.className='cmp-banner';}
   renderKPIs(m,mp,comparing);
   renderCharts(data);
@@ -482,8 +479,7 @@ function update(){
 
 async function load(){
   try{
-    const res=await fetch(CSV);
-    if(!res.ok)throw new Error('HTTP '+res.status);
+    const res=await fetch(CSV);if(!res.ok)throw new Error('HTTP '+res.status);
     const txt=await res.text();
     DATA=parseCSV(txt).map(mapRow).filter(r=>r.datum);
     console.log('Geladen:',DATA.length,'leads');
