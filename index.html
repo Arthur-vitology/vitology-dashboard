@@ -173,6 +173,17 @@ tbody tr:hover{background:#fafaf8}
         <div class="tbl-wrap"><table id="tbron"></table></div>
       </div>
     </div>
+    <div class="sec">
+      <div class="sec-hdr">
+        <div>
+          <div class="sec-title">Advertentiekanalen</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:2px">Live data via Meta &amp; Google Ads API</div>
+        </div>
+        <button class="export-btn" onclick="refreshAds()">↻ Vernieuwen</button>
+      </div>
+      <div id="ads-loading" style="text-align:center;padding:20px;color:var(--muted);font-size:12px">Advertentiedata laden...</div>
+      <div class="tbl-wrap" id="ads-tbl-wrap" style="display:none"><table id="ads-tbl"></table></div>
+    </div>
   </div>
   <div id="err" class="state-msg" style="display:none">Kon data niet laden.</div>
 </div>
@@ -194,7 +205,6 @@ function parseCSV(txt){
   const hdrs=rows[0].map(h=>h.replace(/^\uFEFF/,'').trim());
   return rows.slice(1).map(v=>{const o={};hdrs.forEach((h,i)=>o[h]=(v[i]||'').trim());return o;});
 }
-
 function pd(s){
   if(!s||s==='/'||s==='')return null;s=s.trim();
   let m=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);if(m)return mkd(+m[3],+m[2]-1,+m[1]);
@@ -205,12 +215,10 @@ function pd(s){
 }
 function mkd(y,m,d){const dt=new Date(y,m,d,12,0,0,0);return isNaN(dt)?null:dt;}
 function dayTs(dt){return new Date(dt.getFullYear(),dt.getMonth(),dt.getDate()).getTime();}
-
 function mapRow(r){
   const get=k=>{const f=Object.keys(r).find(x=>x.trim().toLowerCase()===k.toLowerCase());return f?(r[f]||'').trim():'';};
   return{locatie:get('Vitology locatie'),bron:get('Bron'),datum:pd(get('Registratiedatum')),contacted:get('Contacted?'),proefsessie:pd(get('Datum proefsessie')),noshow:get('No show?'),factuurdatum:pd(get('eerste factuurdatum'))};
 }
-
 function getRange(){
   const p=document.getElementById('sp').value,now=new Date(),dow=(now.getDay()+6)%7;
   let from=null,to=null,pf=null,pt=null;
@@ -236,7 +244,6 @@ function getRange(){
   }
   return{from,to,pf,pt};
 }
-
 function filt(from,to){
   const l=document.getElementById('sl').value,b=document.getElementById('sb').value;
   return DATA.filter(r=>{
@@ -249,7 +256,6 @@ function filt(from,to){
     return true;
   });
 }
-
 function calc(d){
   const t=d.length,c=d.filter(r=>['Ja','Lost','F-Up'].includes(r.contacted)).length,
     s=d.filter(r=>r.proefsessie).length,sh=d.filter(r=>r.noshow==='Aanwezig').length,
@@ -257,7 +263,6 @@ function calc(d){
     o=d.filter(r=>r.contacted==='F-Up').length,l=d.filter(r=>r.contacted==='Lost').length;
   return{t,c,s,sh,ns,w,o,l,wr:t>0?Math.round(w/t*100):0};
 }
-
 function pct(a,b){return b>0?Math.round(a/b*100):0;}
 function fmtD(d){return d?d.toLocaleDateString('nl-BE',{day:'numeric',month:'short',year:'numeric'}):'?';}
 function dlt(cur,prv){
@@ -272,7 +277,6 @@ function dltPct(cur,prv){
   return{txt:sg+d+'%',cls:d>0?'up':d<0?'dn':'eq'};
 }
 function cpp(cost,n){return n>0&&cost>0?'€ '+Math.round(cost/n):'€ —';}
-
 function renderKPIs(m,mp,cmp){
   const cost=parseFloat(document.getElementById('ac').value)||0;
   const d=k=>(cmp&&mp)?dlt(m[k],mp[k]):null;
@@ -289,7 +293,6 @@ function renderKPIs(m,mp,cmp){
     kc('Show',m.sh,'',pct(m.sh,m.sh+m.ns)+'% show rate',d('sh'))+
     kc('No-show',m.ns,'',null,d('ns'));
 }
-
 function renderCharts(data){
   const byDay={};
   data.forEach(r=>{const dt=r.datum,k=dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0');byDay[k]=(byDay[k]||0)+1;});
@@ -301,13 +304,11 @@ function renderCharts(data){
   CS=new Chart(document.getElementById('cs'),{type:'doughnut',data:{labels:Object.keys(sc),datasets:[{data:Object.values(sc),backgroundColor:cols,borderWidth:2,borderColor:'#fff'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},cutout:'65%'}});
   document.getElementById('legend').innerHTML=Object.keys(sc).map((l,i)=>'<div class="leg-item"><div class="leg-dot" style="background:'+cols[i]+'"></div>'+l+' ('+sc[l]+')</div>').join('');
 }
-
 function getWeekNum(d){
   const tmp=new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate()));
   const dow=tmp.getUTCDay()||7;tmp.setUTCDate(tmp.getUTCDate()+4-dow);
   return Math.ceil((((tmp-new Date(Date.UTC(tmp.getUTCFullYear(),0,1)))/86400000)+1)/7);
 }
-
 function aggData(rows){
   const g={t:0,c:0,s:0,sh:0,ns:0,w:0,o:0,l:0};
   rows.forEach(r=>{
@@ -318,9 +319,7 @@ function aggData(rows){
   });
   return g;
 }
-
 let csvExportData=[];
-
 function renderCells(g,cost,isAbs){
   if(isAbs){
     return'<td>'+g.t+'</td><td>'+g.c+'</td><td>'+g.s+'</td><td>'+g.sh+'</td>'+
@@ -341,16 +340,11 @@ function renderCells(g,cost,isAbs){
       '<td style="font-family:\'DM Mono\',monospace;color:var(--muted)">'+cpp(cost,g.t)+'</td>';
   }
 }
-
 function deltaRow(label,cur,prv){
   const keys=['t','c','s','sh','w','o','l'];
-  const cells=keys.map(k=>{
-    const dp=dltPct(cur[k],prv[k]);
-    return'<td class="'+(dp.cls==='up'?'delta-up':dp.cls==='dn'?'delta-dn':'')+'">'+dp.txt+'</td>';
-  });
+  const cells=keys.map(k=>{const dp=dltPct(cur[k],prv[k]);return'<td class="'+(dp.cls==='up'?'delta-up':dp.cls==='dn'?'delta-dn':'')+'">'+dp.txt+'</td>';});
   return'<tr class="tbl-delta"><td>'+label+'</td><td></td>'+cells.join('')+'<td></td><td></td></tr>';
 }
-
 function renderDrillTable(data){
   const cost=parseFloat(document.getElementById('ac').value)||0;
   const isAbs=curMode==='abs';
@@ -375,25 +369,19 @@ function renderDrillTable(data){
   const curYear=allYears[allYears.length-1];
   const prevYear=allYears[allYears.length-2];
   Object.keys(tree).sort().reverse().forEach(y=>{
-    const yid='y'+(rid++);
-    const yg=aggData(tree[y].rows);
+    const yid='y'+(rid++);const yg=aggData(tree[y].rows);
     csvExportData.push([y,yg.t,yg.c,yg.s,yg.sh,yg.w,yg.o,yg.l,pct(yg.w,yg.t)+'%',cpp(cost,yg.t)]);
     html+=`<tr class="dr dr-y" onclick="toggleDrill('${yid}')"><td><span class="arr" id="a-${yid}">▶</span>${y}</td>${renderCells(yg,cost,isAbs)}</tr>`;
     Object.keys(tree[y].q).sort((a,b)=>+b-+a).forEach(q=>{
-      const qid='q'+(rid++);
-      const qlbl='Q'+(+q+1)+' '+y;
-      const qg=aggData(tree[y].q[q].rows);
+      const qid='q'+(rid++);const qlbl='Q'+(+q+1)+' '+y;const qg=aggData(tree[y].q[q].rows);
       csvExportData.push([qlbl,qg.t,qg.c,qg.s,qg.sh,qg.w,qg.o,qg.l,pct(qg.w,qg.t)+'%',cpp(cost,qg.t)]);
       html+=`<tr class="dr dr-q dc" id="c-${yid}" onclick="toggleDrill('${qid}')"><td><span class="arr" id="a-${qid}">▶</span>${qlbl}</td>${renderCells(qg,cost,isAbs)}</tr>`;
       Object.keys(tree[y].q[q].m).sort((a,b)=>+b-+a).forEach(mo=>{
-        const mid='m'+(rid++);
-        const mlbl=MN[+mo]+' '+y;
-        const mg=aggData(tree[y].q[q].m[mo].rows);
+        const mid='m'+(rid++);const mlbl=MN[+mo]+' '+y;const mg=aggData(tree[y].q[q].m[mo].rows);
         csvExportData.push([mlbl,mg.t,mg.c,mg.s,mg.sh,mg.w,mg.o,mg.l,pct(mg.w,mg.t)+'%',cpp(cost,mg.t)]);
         html+=`<tr class="dr dr-m dc" id="c-${qid}" onclick="toggleDrill('${mid}')"><td><span class="arr" id="a-${mid}">▶</span>— ${mlbl}</td>${renderCells(mg,cost,isAbs)}</tr>`;
         Object.keys(tree[y].q[q].m[mo].w).sort().reverse().forEach(wk=>{
-          const wid='w'+(rid++);
-          const wg=aggData(tree[y].q[q].m[mo].w[wk].rows);
+          const wid='w'+(rid++);const wg=aggData(tree[y].q[q].m[mo].w[wk].rows);
           html+=`<tr class="dr dr-w dc" id="c-${mid}" onclick="toggleDrill('${wid}')"><td><span class="arr" id="a-${wid}">▶</span>— ${wk}</td>${renderCells(wg,cost,isAbs)}</tr>`;
           Object.keys(tree[y].q[q].m[mo].w[wk].d).sort().reverse().forEach(dk=>{
             const dg=aggData(tree[y].q[q].m[mo].w[wk].d[dk].rows);
@@ -405,39 +393,25 @@ function renderDrillTable(data){
   });
   const totG=aggData(data);
   html+=`<tr class="tbl-total"><td>Totaal</td>${renderCells(totG,cost,isAbs)}</tr>`;
-  if(comparing){
-    const{from,to,pf,pt}=getRange();
-    const prevData=filt(pf,pt);
-    if(prevData.length>0)html+=deltaRow('Δ% vs vorige periode',totG,aggData(prevData));
-  }
+  if(comparing){const{from,to,pf,pt}=getRange();const prevData=filt(pf,pt);if(prevData.length>0)html+=deltaRow('Δ% vs vorige periode',totG,aggData(prevData));}
   if(curYear&&prevYear)html+=deltaRow('Δ% vs vorig jaar',aggData(tree[curYear].rows),aggData(tree[prevYear].rows));
   document.getElementById('ptbl').innerHTML=thd+'<tbody>'+html+'</tbody>';
 }
-
 function toggleDrill(id){
   const arr=document.getElementById('a-'+id);
   const isOpen=arr&&arr.classList.contains('open');
   if(arr)arr.classList.toggle('open',!isOpen);
   document.querySelectorAll('#c-'+id).forEach(c=>{
-    if(isOpen){
-      c.classList.remove('on');
-      const na=c.querySelector('.arr');
-      if(na&&na.classList.contains('open')){
-        na.classList.remove('open');
-        const nid=na.id.replace('a-','');
-        document.querySelectorAll('#c-'+nid).forEach(nc=>nc.classList.remove('on'));
-      }
-    }else{c.classList.add('on');}
+    if(isOpen){c.classList.remove('on');const na=c.querySelector('.arr');if(na&&na.classList.contains('open')){na.classList.remove('open');const nid=na.id.replace('a-','');document.querySelectorAll('#c-'+nid).forEach(nc=>nc.classList.remove('on'));}}
+    else{c.classList.add('on');}
   });
 }
-
 function setMode(m){
   curMode=m;
   document.getElementById('mAbs').classList.toggle('active',m==='abs');
   document.getElementById('mPct').classList.toggle('active',m==='pct');
   renderDrillTable(currentData);
 }
-
 function exportCSV(){
   const rows=csvExportData.map(r=>r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(','));
   const blob=new Blob([rows.join('\n')],{type:'text/csv;charset=utf-8;'});
@@ -445,14 +419,11 @@ function exportCSV(){
   const a=document.createElement('a');a.href=url;a.download='vitology_crm.csv';a.click();
   URL.revokeObjectURL(url);
 }
-
 function renderGroupTable(data,key,id){
   const g={};
   data.forEach(r=>{
-    const k=r[key]||'Onbekend';
-    if(!g[k])g[k]={t:0,c:0,s:0,sh:0,w:0,o:0,l:0};
-    const x=g[k];x.t++;
-    if(['Ja','Lost','F-Up'].includes(r.contacted))x.c++;
+    const k=r[key]||'Onbekend';if(!g[k])g[k]={t:0,c:0,s:0,sh:0,w:0,o:0,l:0};
+    const x=g[k];x.t++;if(['Ja','Lost','F-Up'].includes(r.contacted))x.c++;
     if(r.proefsessie)x.s++;if(r.noshow==='Aanwezig')x.sh++;
     if(r.factuurdatum)x.w++;if(r.contacted==='F-Up')x.o++;if(r.contacted==='Lost')x.l++;
   });
@@ -460,48 +431,74 @@ function renderGroupTable(data,key,id){
   const thd='<thead><tr><th>'+(key==='locatie'?'Locatie':'Bron')+'</th><th>Leads</th><th>Contacted</th><th>Sessie</th><th>Show</th><th>Won</th><th>Open</th><th>Lost</th><th>Win rate</th></tr></thead>';
   document.getElementById(id).innerHTML=thd+'<tbody>'+rows+'</tbody>';
 }
-
+async function fetchAds(){
+  const{from,to}=getRange();
+  const fmt=d=>d?d.toISOString().slice(0,10):null;
+  const qFrom=fmt(from),qTo=fmt(to);
+  const qs=(qFrom&&qTo)?'?from='+qFrom+'&to='+qTo:'';
+  document.getElementById('ads-loading').style.display='block';
+  document.getElementById('ads-tbl-wrap').style.display='none';
+  const platforms=['meta','google','tiktok'];
+  const results=await Promise.allSettled(platforms.map(p=>fetch('/api/'+p+qs).then(r=>r.json())));
+  const rows=results.map((r,i)=>{
+    if(r.status==='rejected'||r.value.error)return{platform:['Meta','Google Ads','TikTok'][i],spend:0,impressions:0,clicks:0,ctr:0,cpc:0,error:true};
+    return r.value;
+  });
+  renderAdsTable(rows);
+  document.getElementById('ads-loading').style.display='none';
+  document.getElementById('ads-tbl-wrap').style.display='block';
+}
+function renderAdsTable(rows){
+  const totalSpend=rows.reduce((s,r)=>s+r.spend,0);
+  const totalImpressions=rows.reduce((s,r)=>s+r.impressions,0);
+  const totalClicks=rows.reduce((s,r)=>s+r.clicks,0);
+  const totalCtr=totalImpressions>0?totalClicks/totalImpressions*100:0;
+  const totalCpc=totalClicks>0?totalSpend/totalClicks:0;
+  document.getElementById('ac').value=Math.round(totalSpend);
+  update();
+  const fmtE=v=>v>0?'€ '+v.toLocaleString('nl-BE',{minimumFractionDigits:2,maximumFractionDigits:2}):'€ —';
+  const fmtN=v=>v>0?v.toLocaleString('nl-BE'):'—';
+  const fmtP=v=>v>0?v.toFixed(2)+'%':'—';
+  const dataRows=rows.map(r=>r.error?
+    '<tr><td style="font-weight:500">'+r.platform+'</td><td colspan="5" style="color:var(--muted);font-size:11px">Niet geconfigureerd</td></tr>':
+    '<tr><td style="font-weight:500">'+r.platform+'</td><td style="font-family:\'DM Mono\',monospace">'+fmtE(r.spend)+'</td><td style="font-family:\'DM Mono\',monospace">'+fmtN(r.impressions)+'</td><td style="font-family:\'DM Mono\',monospace">'+fmtN(r.clicks)+'</td><td style="font-family:\'DM Mono\',monospace">'+fmtP(r.ctr)+'</td><td style="font-family:\'DM Mono\',monospace">'+fmtE(r.cpc)+'</td></tr>'
+  ).join('');
+  const totRow='<tr class="tbl-total"><td>Totaal</td><td style="font-family:\'DM Mono\',monospace">'+fmtE(totalSpend)+'</td><td style="font-family:\'DM Mono\',monospace">'+fmtN(totalImpressions)+'</td><td style="font-family:\'DM Mono\',monospace">'+fmtN(totalClicks)+'</td><td style="font-family:\'DM Mono\',monospace">'+fmtP(totalCtr)+'</td><td style="font-family:\'DM Mono\',monospace">'+fmtE(totalCpc)+'</td></tr>';
+  document.getElementById('ads-tbl').innerHTML='<thead><tr><th>Platform</th><th>Spend</th><th>Impressies</th><th>Kliks</th><th>CTR</th><th>CPC</th></tr></thead><tbody>'+dataRows+totRow+'</tbody>';
+}
+function refreshAds(){fetchAds();}
 function update(){
   const{from,to,pf,pt}=getRange();
-  const data=filt(from,to);
-  const prev=comparing?filt(pf,pt):null;
-  const m=calc(data),mp=prev?calc(prev):null;
-  currentData=data;
+  const data=filt(from,to);const prev=comparing?filt(pf,pt):null;
+  const m=calc(data),mp=prev?calc(prev):null;currentData=data;
   const ban=document.getElementById('cb');
-  if(comparing&&pf&&pt){ban.className='cmp-banner on';ban.textContent='Vergelijking: '+(fmtD(from)||'begin')+' – '+(fmtD(to)||'nu')+' vs '+fmtD(pf)+' – '+fmtD(pt);}
+  if(comparing&&pf&&pt){ban.className='cmp-banner on';ban.textContent='Vergelijking: '+(fmtD(from)||'begin')+' - '+(fmtD(to)||'nu')+' vs '+fmtD(pf)+' - '+fmtD(pt);}
   else{ban.className='cmp-banner';}
-  renderKPIs(m,mp,comparing);
-  renderCharts(data);
-  renderDrillTable(data);
-  renderGroupTable(data,'locatie','tloc');
-  renderGroupTable(data,'bron','tbron');
+  renderKPIs(m,mp,comparing);renderCharts(data);renderDrillTable(data);
+  renderGroupTable(data,'locatie','tloc');renderGroupTable(data,'bron','tbron');
 }
-
 async function load(){
   try{
     const res=await fetch(CSV);if(!res.ok)throw new Error('HTTP '+res.status);
     const txt=await res.text();
     DATA=parseCSV(txt).map(mapRow).filter(r=>r.datum);
-    console.log('Geladen:',DATA.length,'leads');
     document.getElementById('lu').textContent='Bijgewerkt: '+new Date().toLocaleTimeString('nl-BE')+' ('+DATA.length+' leads)';
     document.getElementById('loading').style.display='none';
     document.getElementById('dash').style.display='block';
-    update();
+    update();fetchAds();
   }catch(e){
     console.error(e);
     document.getElementById('loading').style.display='none';
     document.getElementById('err').style.display='block';
   }
 }
-
-document.getElementById('sp').addEventListener('change',function(){document.getElementById('cd').className=this.value==='custom'?'cdates on':'cdates';update();});
+document.getElementById('sp').addEventListener('change',function(){document.getElementById('cd').className=this.value==='custom'?'cdates on':'cdates';update();fetchAds();});
 document.getElementById('sl').addEventListener('change',update);
 document.getElementById('sb').addEventListener('change',update);
 document.getElementById('ac').addEventListener('input',update);
-document.getElementById('df').addEventListener('change',update);
-document.getElementById('dt').addEventListener('change',update);
+document.getElementById('df').addEventListener('change',function(){update();fetchAds();});
+document.getElementById('dt').addEventListener('change',function(){update();fetchAds();});
 document.getElementById('cmpBtn').addEventListener('click',function(){comparing=!comparing;this.classList.toggle('on',comparing);this.textContent=comparing?'↕ Vergelijking aan':'↕ Vergelijk met vorige periode';update();});
-
 load();
 </script>
 </body>
