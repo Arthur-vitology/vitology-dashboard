@@ -48,9 +48,6 @@ header{background:var(--surf);border-bottom:1px solid var(--bdr);padding:14px 28
 .sec{background:var(--surf);border:1px solid var(--bdr);border-radius:10px;padding:14px 16px;margin-bottom:12px}
 .sec-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px}
 .sec-title{font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
-.tab-btns{display:flex;gap:2px;background:var(--bg);padding:2px;border-radius:6px;border:1px solid var(--bdr)}
-.tab-btn{padding:3px 9px;border-radius:4px;border:none;background:transparent;font-size:11px;font-weight:500;color:var(--muted);cursor:pointer;font-family:'DM Sans',sans-serif}
-.tab-btn.active{background:var(--surf);color:var(--txt);border:1px solid var(--bdr)}
 .mode-btns{display:flex;gap:2px;background:var(--bg);padding:2px;border-radius:6px;border:1px solid var(--bdr)}
 .mode-btn{padding:3px 8px;border-radius:4px;border:none;background:transparent;font-size:11px;font-weight:500;color:var(--muted);cursor:pointer;font-family:'DM Sans',sans-serif}
 .mode-btn.active{background:var(--surf);color:var(--txt);border:1px solid var(--bdr)}
@@ -63,6 +60,24 @@ tr:last-child td{border-bottom:none}
 tbody tr:hover{background:var(--bg)}
 .badge{display:inline-block;padding:1px 7px;border-radius:20px;font-size:10px;font-weight:600;font-family:'DM Mono',monospace}
 .b-won{background:var(--gbg);color:var(--green)}.b-open{background:var(--bbg);color:var(--blue)}.b-lost{background:var(--rbg);color:var(--red)}
+
+/* Drill-down tabel stijlen */
+.drill-row{cursor:pointer;user-select:none}
+.drill-row:hover td{background:var(--bg)}
+.drill-row td:first-child{font-weight:600}
+.drill-indent-1 td:first-child{padding-left:24px}
+.drill-indent-2 td:first-child{padding-left:40px}
+.drill-indent-3 td:first-child{padding-left:56px}
+.drill-arrow{display:inline-block;width:14px;font-size:9px;color:var(--muted);transition:transform .15s}
+.drill-arrow.open{transform:rotate(90deg)}
+.drill-child{display:none}
+.drill-child.visible{display:table-row}
+.drill-lbl-jaar td{background:var(--bg);font-size:12px}
+.drill-lbl-kwartaal td{font-size:12px}
+.drill-lbl-maand td{font-size:11px;color:var(--muted)}
+.drill-lbl-week td{font-size:11px;color:var(--muted)}
+.drill-lbl-dag td{font-size:11px;color:var(--muted)}
+
 .two-col{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
 .charts-row{display:grid;grid-template-columns:2fr 1fr;gap:12px;margin-bottom:12px}
 .chart-legend{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
@@ -110,7 +125,7 @@ tbody tr:hover{background:var(--bg)}
         <select id="sb"><option value="all">Alle bronnen</option><option value="Kennismaking formulier">Kennismaking formulier</option><option value="Heractivatie">Heractivatie</option><option value="Walk-in">Walk-in</option></select>
       </div>
       <div class="fsep"></div>
-      <button class="cmp-btn" id="cmpBtn">↕ Vergelijk met vorige periode</button>
+      <button class="cmp-btn on" id="cmpBtn">↕ Vergelijking aan</button>
       <div class="cost-wrap">
         <label>Advertentiekosten €</label>
         <input type="number" id="ac" value="0" min="0" placeholder="0">
@@ -138,13 +153,6 @@ tbody tr:hover{background:var(--bg)}
             <button class="mode-btn active" id="mAbs" onclick="setMode('abs')">Absoluut</button>
             <button class="mode-btn" id="mPct" onclick="setMode('pct')">%</button>
           </div>
-          <div class="tab-btns">
-            <button class="tab-btn" onclick="setTab('jaar',this)">Jaar</button>
-            <button class="tab-btn" onclick="setTab('kwartaal',this)">Kwartaal</button>
-            <button class="tab-btn active" onclick="setTab('maand',this)">Maand</button>
-            <button class="tab-btn" onclick="setTab('week',this)">Week</button>
-            <button class="tab-btn" onclick="setTab('dag',this)">Dag</button>
-          </div>
         </div>
       </div>
       <div class="tbl-wrap"><table id="ptbl"></table></div>
@@ -164,7 +172,7 @@ tbody tr:hover{background:var(--bg)}
 </div>
 <script>
 const CSV='https://docs.google.com/spreadsheets/d/e/2PACX-1vQ6ul9nS3hs_bL9YVDy05O_kVdGoWsMHcqxME6DPqbarHPW_f4TqYAND05HvgsyEmPePTnTy8rRgXWv/pub?output=csv';
-let DATA=[],CL=null,CS=null,curTab='maand',curMode='abs',comparing=false,currentData=[];
+let DATA=[],CL=null,CS=null,curMode='abs',comparing=true,currentData=[];
 
 function parseCSV(txt){
   const rows=[];let row=[],f='',q=false;
@@ -303,43 +311,142 @@ function getWeekNum(d){
   return Math.ceil((((tmp-new Date(Date.UTC(y,0,1)))/86400000)+1)/7);
 }
 
-function getPeriodKey(d,tab){
-  const y=d.getFullYear(),mo=d.getMonth()+1,day=d.getDate();
-  if(tab==='jaar')return''+y;
-  if(tab==='kwartaal')return'Q'+Math.ceil(mo/3)+' '+y;
-  if(tab==='maand'){const mn=['Jan','Feb','Mrt','Apr','Mei','Jun','Jul','Aug','Sep','Okt','Nov','Dec'];return mn[mo-1]+' '+y;}
-  if(tab==='week'){
-    const tmp=new Date(d);tmp.setHours(12);
-    const dow=(tmp.getDay()+6)%7;
-    const mon=new Date(tmp);mon.setDate(tmp.getDate()-dow);
-    const sun=new Date(mon);sun.setDate(mon.getDate()+6);
-    const fmt=x=>String(x.getDate()).padStart(2,'0')+'/'+String(x.getMonth()+1).padStart(2,'0');
-    return'W'+getWeekNum(tmp)+' ('+fmt(mon)+'-'+fmt(sun)+')';
-  }
-  if(tab==='dag')return String(day).padStart(2,'0')+'/'+String(mo).padStart(2,'0')+'/'+y;
-  return''+y;
+function aggData(rows){
+  const g={t:0,c:0,s:0,sh:0,ns:0,w:0,o:0,l:0};
+  rows.forEach(r=>{
+    g.t++;
+    if(['Ja','Lost','F-Up'].includes(r.contacted))g.c++;
+    if(r.proefsessie)g.s++;
+    if(r.noshow==='Aanwezig')g.sh++;
+    if(r.noshow==='No show')g.ns++;
+    if(r.factuurdatum)g.w++;
+    if(r.contacted==='F-Up')g.o++;
+    if(r.contacted==='Lost')g.l++;
+  });
+  return g;
 }
 
-function renderPeriodTable(data){
-  const cost=parseFloat(document.getElementById('ac').value)||0;
-  const groups={},order=[];
-  data.forEach(r=>{
-    const k=getPeriodKey(r.datum,curTab);
-    if(!groups[k]){groups[k]={t:0,c:0,s:0,sh:0,w:0,o:0,l:0};order.push(k);}
-    const g=groups[k];g.t++;
-    if(['Ja','Lost','F-Up'].includes(r.contacted))g.c++;
-    if(r.proefsessie)g.s++;if(r.noshow==='Aanwezig')g.sh++;
-    if(r.factuurdatum)g.w++;if(r.contacted==='F-Up')g.o++;if(r.contacted==='Lost')g.l++;
-  });
-  const keys=[...new Set(order)].reverse();
+function renderCells(g,cost){
   const isAbs=curMode==='abs';
+  if(isAbs){
+    return'<td>'+g.t+'</td><td>'+g.c+'</td><td>'+g.s+'</td><td>'+g.sh+'</td>'+
+      '<td><span class="badge b-won">'+g.w+'</span></td>'+
+      '<td><span class="badge b-open">'+g.o+'</span></td>'+
+      '<td><span class="badge b-lost">'+g.l+'</span></td>'+
+      '<td style="font-family:\'DM Mono\',monospace;font-weight:500">'+pct(g.w,g.t)+'%</td>'+
+      '<td style="font-family:\'DM Mono\',monospace;color:var(--muted)">'+cpp(cost,g.t)+'</td>';
+  }else{
+    return'<td>'+g.t+'</td>'+
+      '<td style="font-family:\'DM Mono\',monospace">'+pct(g.c,g.t)+'%</td>'+
+      '<td style="font-family:\'DM Mono\',monospace">'+pct(g.s,g.t)+'%</td>'+
+      '<td style="font-family:\'DM Mono\',monospace">'+pct(g.sh,g.t)+'%</td>'+
+      '<td style="font-family:\'DM Mono\',monospace;color:var(--green);font-weight:500">'+pct(g.w,g.t)+'%</td>'+
+      '<td style="font-family:\'DM Mono\',monospace">'+pct(g.o,g.t)+'%</td>'+
+      '<td style="font-family:\'DM Mono\',monospace;color:var(--red)">'+pct(g.l,g.t)+'%</td>'+
+      '<td style="font-family:\'DM Mono\',monospace;font-weight:500">'+pct(g.w,g.t)+'%</td>'+
+      '<td style="font-family:\'DM Mono\',monospace;color:var(--muted)">'+cpp(cost,g.t)+'</td>';
+  }
+}
+
+function renderDrillTable(data){
+  const cost=parseFloat(document.getElementById('ac').value)||0;
+  const MN=['Jan','Feb','Mrt','Apr','Mei','Jun','Jul','Aug','Sep','Okt','Nov','Dec'];
+
+  // Build hierarchy: jaar -> kwartaal -> maand -> week -> dag
+  const tree={};
+  data.forEach(r=>{
+    const d=r.datum;
+    const y=d.getFullYear();
+    const mo=d.getMonth();
+    const q=Math.floor(mo/3);
+    const day=d.getDate();
+    const dow=(d.getDay()+6)%7;
+    const mon=new Date(d);mon.setDate(day-dow);mon.setHours(12);
+    const wk=getWeekNum(d);
+    const wkey='W'+wk+' '+y;
+    const dkey=String(day).padStart(2,'0')+'/'+String(mo+1).padStart(2,'0')+'/'+y;
+
+    if(!tree[y])tree[y]={rows:[],q:{}};
+    tree[y].rows.push(r);
+    if(!tree[y].q[q])tree[y].q[q]={rows:[],m:{}};
+    tree[y].q[q].rows.push(r);
+    if(!tree[y].q[q].m[mo])tree[y].q[q].m[mo]={rows:[],w:{}};
+    tree[y].q[q].m[mo].rows.push(r);
+    if(!tree[y].q[q].m[mo].w[wkey])tree[y].q[q].m[mo].w[wkey]={rows:[],d:{}};
+    tree[y].q[q].m[mo].w[wkey].rows.push(r);
+    if(!tree[y].q[q].m[mo].w[wkey].d[dkey])tree[y].q[q].m[mo].w[wkey].d[dkey]={rows:[]};
+    tree[y].q[q].m[mo].w[wkey].d[dkey].rows.push(r);
+  });
+
   const thd='<thead><tr><th>Periode</th><th>Leads</th><th>Contacted</th><th>Sessie</th><th>Show</th><th>Won</th><th>Open</th><th>Lost</th><th>Win rate</th><th>Kost/lead</th></tr></thead>';
-  const rows=keys.map(k=>{
-    const g=groups[k];
-    if(isAbs)return'<tr><td style="font-weight:500">'+k+'</td><td>'+g.t+'</td><td>'+g.c+'</td><td>'+g.s+'</td><td>'+g.sh+'</td><td><span class="badge b-won">'+g.w+'</span></td><td><span class="badge b-open">'+g.o+'</span></td><td><span class="badge b-lost">'+g.l+'</span></td><td style="font-family:\'DM Mono\',monospace;font-weight:500">'+pct(g.w,g.t)+'%</td><td style="font-family:\'DM Mono\',monospace;color:var(--muted)">'+cpp(cost,g.t)+'</td></tr>';
-    return'<tr><td style="font-weight:500">'+k+'</td><td>'+g.t+'</td><td style="font-family:\'DM Mono\',monospace">'+pct(g.c,g.t)+'%</td><td style="font-family:\'DM Mono\',monospace">'+pct(g.s,g.t)+'%</td><td style="font-family:\'DM Mono\',monospace">'+pct(g.sh,g.t)+'%</td><td style="font-family:\'DM Mono\',monospace;color:var(--green);font-weight:500">'+pct(g.w,g.t)+'%</td><td style="font-family:\'DM Mono\',monospace">'+pct(g.o,g.t)+'%</td><td style="font-family:\'DM Mono\',monospace;color:var(--red)">'+pct(g.l,g.t)+'%</td><td style="font-family:\'DM Mono\',monospace;font-weight:500">'+pct(g.w,g.t)+'%</td><td style="font-family:\'DM Mono\',monospace;color:var(--muted)">'+cpp(cost,g.t)+'</td></tr>';
-  }).join('');
-  document.getElementById('ptbl').innerHTML=thd+'<tbody>'+rows+'</tbody>';
+  let html='';
+  let rowId=0;
+
+  Object.keys(tree).sort().reverse().forEach(y=>{
+    const yid='y'+rowId++;
+    const yg=aggData(tree[y].rows);
+    html+=`<tr class="drill-row drill-lbl-jaar" onclick="toggleDrill('${yid}')">
+      <td><span class="drill-arrow" id="arr-${yid}">▶</span> ${y}</td>${renderCells(yg,cost)}</tr>`;
+
+    Object.keys(tree[y].q).sort().forEach(q=>{
+      const qid='q'+rowId++;
+      const qlbl='Q'+(+q+1)+' '+y;
+      const qg=aggData(tree[y].q[q].rows);
+      html+=`<tr class="drill-row drill-child drill-lbl-kwartaal drill-indent-1" id="child-${yid}" onclick="toggleDrill('${qid}')">
+        <td><span class="drill-arrow" id="arr-${qid}">▶</span> ${qlbl}</td>${renderCells(qg,cost)}</tr>`;
+
+      Object.keys(tree[y].q[q].m).sort((a,b)=>+b-+a).forEach(mo=>{
+        const mid='m'+rowId++;
+        const mlbl=MN[+mo]+' '+y;
+        const mg=aggData(tree[y].q[q].m[mo].rows);
+        html+=`<tr class="drill-row drill-child drill-lbl-maand drill-indent-2" id="child-${qid}" onclick="toggleDrill('${mid}')">
+          <td><span class="drill-arrow" id="arr-${mid}">▶</span> ${mlbl}</td>${renderCells(mg,cost)}</tr>`;
+
+        Object.keys(tree[y].q[q].m[mo].w).sort().reverse().forEach(wk=>{
+          const wid='w'+rowId++;
+          const wg=aggData(tree[y].q[q].m[mo].w[wk].rows);
+          html+=`<tr class="drill-row drill-child drill-lbl-week drill-indent-3" id="child-${mid}" onclick="toggleDrill('${wid}')">
+            <td><span class="drill-arrow" id="arr-${wid}">▶</span> ${wk}</td>${renderCells(wg,cost)}</tr>`;
+
+          Object.keys(tree[y].q[q].m[mo].w[wk].d).sort().reverse().forEach(dk=>{
+            const dg=aggData(tree[y].q[q].m[mo].w[wk].d[dk].rows);
+            html+=`<tr class="drill-child drill-lbl-dag drill-indent-3" id="child-${wid}" style="padding-left:70px">
+              <td style="padding-left:70px">${dk}</td>${renderCells(dg,cost)}</tr>`;
+          });
+        });
+      });
+    });
+  });
+
+  document.getElementById('ptbl').innerHTML=thd+'<tbody>'+html+'</tbody>';
+}
+
+function toggleDrill(id){
+  const arr=document.getElementById('arr-'+id);
+  const children=document.querySelectorAll('#child-'+id);
+  const isOpen=arr&&arr.classList.contains('open');
+  if(arr){arr.classList.toggle('open',!isOpen);}
+  children.forEach(c=>{
+    if(isOpen){
+      c.classList.remove('visible');
+      // also close nested children
+      const nestedArr=c.querySelector('.drill-arrow');
+      if(nestedArr&&nestedArr.classList.contains('open')){
+        nestedArr.classList.remove('open');
+        const nestedId=nestedArr.id.replace('arr-','');
+        document.querySelectorAll('#child-'+nestedId).forEach(nc=>nc.classList.remove('visible'));
+      }
+    }else{
+      c.classList.add('visible');
+    }
+  });
+}
+
+function setMode(m){
+  curMode=m;
+  document.getElementById('mAbs').classList.toggle('active',m==='abs');
+  document.getElementById('mPct').classList.toggle('active',m==='pct');
+  renderDrillTable(currentData);
 }
 
 function renderGroupTable(data,key,id){
@@ -357,20 +464,6 @@ function renderGroupTable(data,key,id){
   document.getElementById(id).innerHTML=thd+'<tbody>'+rows+'</tbody>';
 }
 
-function setTab(t,btn){
-  curTab=t;
-  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
-  btn.classList.add('active');
-  renderPeriodTable(currentData);
-}
-
-function setMode(m){
-  curMode=m;
-  document.getElementById('mAbs').classList.toggle('active',m==='abs');
-  document.getElementById('mPct').classList.toggle('active',m==='pct');
-  renderPeriodTable(currentData);
-}
-
 function update(){
   const{from,to,pf,pt}=getRange();
   const data=filt(from,to);
@@ -382,7 +475,7 @@ function update(){
   else{ban.className='cmp-banner';}
   renderKPIs(m,mp,comparing);
   renderCharts(data);
-  renderPeriodTable(data);
+  renderDrillTable(data);
   renderGroupTable(data,'locatie','tloc');
   renderGroupTable(data,'bron','tbron');
 }
@@ -392,9 +485,7 @@ async function load(){
     const res=await fetch(CSV);
     if(!res.ok)throw new Error('HTTP '+res.status);
     const txt=await res.text();
-    const rows=parseCSV(txt);
-    console.log('Headers:',Object.keys(rows[0]||{}));
-    DATA=rows.map(mapRow).filter(r=>r.datum);
+    DATA=parseCSV(txt).map(mapRow).filter(r=>r.datum);
     console.log('Geladen:',DATA.length,'leads');
     document.getElementById('lu').textContent='Bijgewerkt: '+new Date().toLocaleTimeString('nl-BE')+' ('+DATA.length+' leads)';
     document.getElementById('loading').style.display='none';
