@@ -206,7 +206,6 @@ tbody tr:hover{background:#fafaf8}
             <option value="all">Alle locaties</option>
             <option value="Vitology Antwerpen">Antwerpen</option>
             <option value="Vitology Schilde">Schilde</option>
-            <option value="Vitology Rotterdam">Rotterdam</option>
           </select>
         </div>
         <div class="fsep"></div>
@@ -243,7 +242,10 @@ tbody tr:hover{background:#fafaf8}
 <script>
 const LEADS_CSV='https://docs.google.com/spreadsheets/d/e/2PACX-1vQ6ul9nS3hs_bL9YVDy05O_kVdGoWsMHcqxME6DPqbarHPW_f4TqYAND05HvgsyEmPePTnTy8rRgXWv/pub?output=csv';
 const SALES_CSV='https://docs.google.com/spreadsheets/d/e/2PACX-1vS22Q6zpnQSBp9bXg-daDE-KTlhs1gU0ekwB8-UaUSnwhyyd2YQ2IB75OjBl9xwiA/pub?output=csv';
+const VITOLOGISTS_CSV='https://docs.google.com/spreadsheets/d/e/2PACX-1vQ6ul9nS3hs_bL9YVDy05O_kVdGoWsMHcqxME6DPqbarHPW_f4TqYAND05HvgsyEmPePTnTy8rRgXWv/pub?output=csv&gid=0';
 let activeTab='leads';
+let ACTIVE_VITOLOGISTS=0;
+
 function switchTab(tab){
   activeTab=tab;
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
@@ -252,7 +254,9 @@ function switchTab(tab){
   document.getElementById('tab-'+tab).classList.add('active');
   if(tab==='sales'&&SALES_DATA.length===0)loadSales();
 }
+
 let LEADS_DATA=[],CL=null,CS=null,curMode='abs',comparing=true,currentLeadsData=[];
+
 function parseCSV(txt){
   const rows=[];let row=[],f='',q=false;
   for(let i=0;i<txt.length;i++){
@@ -267,6 +271,7 @@ function parseCSV(txt){
   const hdrs=rows[0].map(h=>h.replace(/^\uFEFF/,'').trim());
   return rows.slice(1).map(v=>{const o={};hdrs.forEach((h,i)=>o[h]=(v[i]||'').trim());return o;});
 }
+
 function pd(s){
   if(!s||s==='/'||s==='')return null;s=s.trim();
   let m=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);if(m)return mkd(+m[3],+m[2]-1,+m[1]);
@@ -293,10 +298,12 @@ function dltPct(cur,prv){
 }
 function cpp(cost,n){return n>0&&cost>0?'€ '+Math.round(cost/n):'€ —';}
 function fmtEur(v){return'€ '+v.toLocaleString('nl-BE',{minimumFractionDigits:2,maximumFractionDigits:2});}
+
 function mapLeadRow(r){
   const get=k=>{const f=Object.keys(r).find(x=>x.trim().toLowerCase()===k.toLowerCase());return f?(r[f]||'').trim():'';};
   return{locatie:get('Vitology locatie'),bron:get('Bron'),datum:pd(get('Registratiedatum')),contacted:get('Contacted?'),proefsessie:pd(get('Datum proefsessie')),noshow:get('No show?'),factuurdatum:pd(get('eerste factuurdatum'))};
 }
+
 function getLeadsRange(){
   const p=document.getElementById('sp').value,now=new Date(),dow=(now.getDay()+6)%7;
   let from=null,to=null,pf=null,pt=null;
@@ -307,6 +314,7 @@ function getLeadsRange(){
   else if(p==='custom'){const fv=document.getElementById('df').value,tv=document.getElementById('dt').value;if(fv){const[y,mo,d]=fv.split('-');from=new Date(+y,+mo-1,+d,0,0,0);}if(tv){const[y,mo,d]=tv.split('-');to=new Date(+y,+mo-1,+d,23,59,59);}if(from&&to){const span=to-from;pt=new Date(from.getTime()-1);pf=new Date(pt.getTime()-span);pf.setHours(0,0,0);}}
   return{from,to,pf,pt};
 }
+
 function filtLeads(from,to){
   const l=document.getElementById('sl').value,b=document.getElementById('sb').value;
   return LEADS_DATA.filter(r=>{
@@ -316,6 +324,7 @@ function filtLeads(from,to){
     return true;
   });
 }
+
 function calcLeads(d){
   const t=d.length,c=d.filter(r=>['Ja','Lost','F-Up'].includes(r.contacted)).length,
     s=d.filter(r=>r.proefsessie).length,sh=d.filter(r=>r.noshow==='Aanwezig').length,
@@ -323,6 +332,7 @@ function calcLeads(d){
     o=d.filter(r=>r.contacted==='F-Up').length,l=d.filter(r=>r.contacted==='Lost').length;
   return{t,c,s,sh,ns,w,o,l,wr:t>0?Math.round(w/t*100):0};
 }
+
 function renderKPIs(m,mp,cmp){
   const cost=parseFloat(document.getElementById('ac').value)||0;
   const d=k=>(cmp&&mp)?dlt(m[k],mp[k]):null;
@@ -339,6 +349,7 @@ function renderKPIs(m,mp,cmp){
     kc('Show',m.sh,'',pct(m.sh,m.sh+m.ns)+'% show rate',d('sh'))+
     kc('No-show',m.ns,'',null,d('ns'));
 }
+
 function renderCharts(data){
   const byDay={};
   data.forEach(r=>{const dt=r.datum,k=dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0');byDay[k]=(byDay[k]||0)+1;});
@@ -350,26 +361,32 @@ function renderCharts(data){
   CS=new Chart(document.getElementById('cs'),{type:'doughnut',data:{labels:Object.keys(sc),datasets:[{data:Object.values(sc),backgroundColor:cols,borderWidth:2,borderColor:'#fff'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},cutout:'65%'}});
   document.getElementById('legend').innerHTML=Object.keys(sc).map((l,i)=>'<div class="leg-item"><div class="leg-dot" style="background:'+cols[i]+'"></div>'+l+' ('+sc[l]+')</div>').join('');
 }
+
 function getWeekNum(d){
   const tmp=new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate()));
   const dow=tmp.getUTCDay()||7;tmp.setUTCDate(tmp.getUTCDate()+4-dow);
   return Math.ceil((((tmp-new Date(Date.UTC(tmp.getUTCFullYear(),0,1)))/86400000)+1)/7);
 }
+
 function aggLeads(rows){
   const g={t:0,c:0,s:0,sh:0,ns:0,w:0,o:0,l:0};
   rows.forEach(r=>{g.t++;if(['Ja','Lost','F-Up'].includes(r.contacted))g.c++;if(r.proefsessie)g.s++;if(r.noshow==='Aanwezig')g.sh++;if(r.noshow==='No show')g.ns++;if(r.factuurdatum)g.w++;if(r.contacted==='F-Up')g.o++;if(r.contacted==='Lost')g.l++;});
   return g;
 }
+
 let csvExportData=[];
+
 function renderLeadCells(g,cost,isAbs){
   if(isAbs)return'<td>'+g.t+'</td><td>'+g.c+'</td><td>'+g.s+'</td><td>'+g.sh+'</td><td><span class="badge b-won">'+g.w+'</span></td><td><span class="badge b-open">'+g.o+'</span></td><td><span class="badge b-lost">'+g.l+'</span></td><td style="font-family:\'DM Mono\',monospace;font-weight:500">'+pct(g.w,g.t)+'%</td><td style="font-family:\'DM Mono\',monospace;color:var(--muted)">'+cpp(cost,g.t)+'</td>';
   return'<td>'+g.t+'</td><td style="font-family:\'DM Mono\',monospace">'+pct(g.c,g.t)+'%</td><td style="font-family:\'DM Mono\',monospace">'+pct(g.s,g.t)+'%</td><td style="font-family:\'DM Mono\',monospace">'+pct(g.sh,g.t)+'%</td><td style="font-family:\'DM Mono\',monospace;color:var(--green);font-weight:500">'+pct(g.w,g.t)+'%</td><td style="font-family:\'DM Mono\',monospace">'+pct(g.o,g.t)+'%</td><td style="font-family:\'DM Mono\',monospace;color:var(--red)">'+pct(g.l,g.t)+'%</td><td style="font-family:\'DM Mono\',monospace;font-weight:500">'+pct(g.w,g.t)+'%</td><td style="font-family:\'DM Mono\',monospace;color:var(--muted)">'+cpp(cost,g.t)+'</td>';
 }
+
 function deltaRow(label,cur,prv){
   const keys=['t','c','s','sh','w','o','l'];
   const cells=keys.map(k=>{const dp=dltPct(cur[k],prv[k]);return'<td class="'+(dp.cls==='up'?'delta-up':dp.cls==='dn'?'delta-dn':'')+'">'+dp.txt+'</td>';});
   return'<tr class="tbl-delta"><td>'+label+'</td><td></td>'+cells.join('')+'<td></td><td></td></tr>';
 }
+
 function renderDrillTable(data){
   const cost=parseFloat(document.getElementById('ac').value)||0;
   const isAbs=curMode==='abs';
@@ -418,6 +435,7 @@ function renderDrillTable(data){
   if(curYear&&prevYear)html+=deltaRow('Δ% vs vorig jaar',aggLeads(tree[curYear].rows),aggLeads(tree[prevYear].rows));
   document.getElementById('ptbl').innerHTML=thd+'<tbody>'+html+'</tbody>';
 }
+
 function toggleDrill(id){
   const arr=document.getElementById('a-'+id);const isOpen=arr&&arr.classList.contains('open');
   if(arr)arr.classList.toggle('open',!isOpen);
@@ -426,17 +444,20 @@ function toggleDrill(id){
     else{c.classList.add('on');}
   });
 }
+
 function setMode(m){
   curMode=m;
   document.getElementById('mAbs').classList.toggle('active',m==='abs');
   document.getElementById('mPct').classList.toggle('active',m==='pct');
   renderDrillTable(currentLeadsData);
 }
+
 function exportCSV(){
   const rows=csvExportData.map(r=>r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(','));
   const blob=new Blob([rows.join('\n')],{type:'text/csv;charset=utf-8;'});
   const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='vitology_leads.csv';a.click();URL.revokeObjectURL(url);
 }
+
 function renderGroupTable(data,key,id){
   const g={};
   data.forEach(r=>{const k=r[key]||'Onbekend';if(!g[k])g[k]={t:0,c:0,s:0,sh:0,w:0,o:0,l:0};const x=g[k];x.t++;if(['Ja','Lost','F-Up'].includes(r.contacted))x.c++;if(r.proefsessie)x.s++;if(r.noshow==='Aanwezig')x.sh++;if(r.factuurdatum)x.w++;if(r.contacted==='F-Up')x.o++;if(r.contacted==='Lost')x.l++;});
@@ -444,6 +465,7 @@ function renderGroupTable(data,key,id){
   const thd='<thead><tr><th>'+(key==='locatie'?'Locatie':'Bron')+'</th><th>Leads</th><th>Contacted</th><th>Sessie</th><th>Show</th><th>Won</th><th>Open</th><th>Lost</th><th>Win rate</th></tr></thead>';
   document.getElementById(id).innerHTML=thd+'<tbody>'+rows+'</tbody>';
 }
+
 async function fetchAds(){
   const{from,to}=getLeadsRange();
   const qs=(fmtDate(from)&&fmtDate(to))?'?from='+fmtDate(from)+'&to='+fmtDate(to):'';
@@ -455,6 +477,7 @@ async function fetchAds(){
   document.getElementById('ads-loading').style.display='none';
   document.getElementById('ads-tbl-wrap').style.display='block';
 }
+
 function renderAdsTable(rows){
   const ts=rows.reduce((s,r)=>s+r.spend,0),ti=rows.reduce((s,r)=>s+r.impressions,0),tc=rows.reduce((s,r)=>s+r.clicks,0);
   document.getElementById('ac').value=Math.round(ts);update();
@@ -464,7 +487,9 @@ function renderAdsTable(rows){
   const tr='<tr class="tbl-total"><td>Totaal</td><td style="font-family:\'DM Mono\',monospace">'+fe(ts)+'</td><td style="font-family:\'DM Mono\',monospace">'+fn(ti)+'</td><td style="font-family:\'DM Mono\',monospace">'+fn(tc)+'</td><td style="font-family:\'DM Mono\',monospace">'+fp(ti>0?tc/ti*100:0)+'</td><td style="font-family:\'DM Mono\',monospace">'+fe(tc>0?ts/tc:0)+'</td></tr>';
   document.getElementById('ads-tbl').innerHTML='<thead><tr><th>Platform</th><th>Spend</th><th>Impressies</th><th>Kliks</th><th>CTR</th><th>CPC</th></tr></thead><tbody>'+dr+tr+'</tbody>';
 }
+
 function refreshAds(){fetchAds();}
+
 function update(){
   const{from,to,pf,pt}=getLeadsRange();
   const data=filtLeads(from,to);const prev=comparing?filtLeads(pf,pt):null;
@@ -475,6 +500,7 @@ function update(){
   renderKPIs(m,mp,comparing);renderCharts(data);renderDrillTable(data);
   renderGroupTable(data,'locatie','tloc');renderGroupTable(data,'bron','tbron');
 }
+
 async function loadLeads(){
   try{
     const res=await fetch(LEADS_CSV);if(!res.ok)throw new Error('HTTP '+res.status);
@@ -490,6 +516,7 @@ async function loadLeads(){
     document.getElementById('leads-err').style.display='block';
   }
 }
+
 document.getElementById('sp').addEventListener('change',function(){document.getElementById('cd').className=this.value==='custom'?'cdates on':'cdates';update();fetchAds();});
 document.getElementById('sl').addEventListener('change',update);
 document.getElementById('sb').addEventListener('change',update);
@@ -506,7 +533,9 @@ let currentSalesData=[];
 let salesExportData=[];
 const CATS=['Vitologist','VitoQ','Losse sessies','Seminars','Andere'];
 const CAT_COLORS={'Vitologist':'#2d5be3','VitoQ':'#1a6b4a','Losse sessies':'#e87d2d','Seminars':'#8c1a1a','Andere':'#a0a09a'};
+
 function parseAmt(v){if(v===null||v===undefined||v==='')return 0;return parseFloat(String(v).replace(',','.').replace(/[^0-9.\-]/g,''))||0;}
+
 function categorizeSub(sub){
   if(!sub||sub.trim()==='')return'Andere';
   const s=sub.toLowerCase();
@@ -516,10 +545,12 @@ function categorizeSub(sub){
   if(s.includes('seminar'))return'Seminars';
   return'Andere';
 }
+
 function mapSalesRow(r){
   const get=k=>{const f=Object.keys(r).find(x=>x.trim().toLowerCase()===k.toLowerCase());return f?(r[f]||'').trim():'';};
   return{invoiceId:get('invoiceid')||get('invoiceId'),memberId:get('memberid')||get('memberId'),location:get('location'),memberName:get('membername')||get('memberName'),datum:pd(get('invoicedate')||get('invoiceDate')),amtExcl:parseAmt(get('amountexclvat')||get('amountExclVat')),amtIncl:parseAmt(get('amountinclvat')||get('amountInclVat')),status:get('invoicestatus')||get('invoiceStatus'),subscription:get('subscription'),category:''};
 }
+
 function getSalesRange(){
   const p=document.getElementById('ssp').value,now=new Date(),dow=(now.getDay()+6)%7;
   let from=null,to=null,pf=null,pt=null;
@@ -530,6 +561,7 @@ function getSalesRange(){
   else if(p==='custom'){const fv=document.getElementById('sdf').value,tv=document.getElementById('sdt').value;if(fv){const[y,mo,d]=fv.split('-');from=new Date(+y,+mo-1,+d,0,0,0);}if(tv){const[y,mo,d]=tv.split('-');to=new Date(+y,+mo-1,+d,23,59,59);}if(from&&to){const span=to-from;pt=new Date(from.getTime()-1);pf=new Date(pt.getTime()-span);pf.setHours(0,0,0);}}
   return{from,to,pf,pt};
 }
+
 function filtSales(from,to){
   const l=document.getElementById('ssl').value,st=document.getElementById('sst').value;
   return SALES_DATA.filter(r=>{
@@ -539,17 +571,18 @@ function filtSales(from,to){
     return true;
   });
 }
+
 function calcSales(data){
   const paid=data.filter(r=>r.status==='betaald');const open=data.filter(r=>r.status==='openstaand');
   const totalPaid=paid.reduce((s,r)=>s+r.amtExcl,0);const totalOpen=open.reduce((s,r)=>s+r.amtExcl,0);
   const total=data.reduce((s,r)=>s+r.amtExcl,0);
-  const vitologists=new Set(data.filter(r=>r.category==='Vitologist').map(r=>r.memberId)).size;
   const vitoqs=data.filter(r=>r.category==='VitoQ').length;
   const catTotals={};CATS.forEach(c=>catTotals[c]=data.filter(r=>r.category===c).reduce((s,r)=>s+r.amtExcl,0));
-  return{total,totalPaid,totalOpen,vitologists,vitoqs,catTotals,count:data.length,paidCount:paid.length,openCount:open.length};
+  return{total,totalPaid,totalOpen,vitologists:ACTIVE_VITOLOGISTS,vitoqs,catTotals,count:data.length,paidCount:paid.length,openCount:open.length};
 }
+
 function renderSalesKPIs(m,mp,cmp){
-  const dp=(k,fmt)=>{if(!cmp||!mp)return null;const d=mp[k]>0?Math.round((m[k]-mp[k])/mp[k]*100):0;const sg=d>=0?'+':'';return{txt:sg+d+'%',cls:m[k]>=mp[k]?'up':'dn'};};
+  const dp=(k)=>{if(!cmp||!mp||mp[k]===0)return null;const d=Math.round((m[k]-mp[k])/mp[k]*100);const sg=d>=0?'+':'';return{txt:sg+d+'%',cls:m[k]>=mp[k]?'up':'dn'};};
   const ke=(lbl,val,cls,sub,cmpd)=>'<div class="kpi '+cls+'"><div class="kpi-lbl">'+lbl+'</div><div class="kpi-val">'+val+'</div>'+(sub?'<div class="kpi-sub">'+sub+'</div>':'')+(cmpd?'<div class="kpi-cmp '+cmpd.cls+'">'+cmpd.txt+'</div>':'')+'</div>';
   document.getElementById('skpis1').innerHTML=
     ke('Totale omzet',fmtEur(m.total),'c-green c-greenbdr',null,dp('total'))+
@@ -557,10 +590,11 @@ function renderSalesKPIs(m,mp,cmp){
     ke('Openstaand',fmtEur(m.totalOpen),'c-amber c-amberbdr',''+m.openCount+' facturen',dp('totalOpen'))+
     ke('Gem. per factuur',m.count>0?fmtEur(m.total/m.count):'€ —','c-blue','',null);
   document.getElementById('skpis2').innerHTML=
-    ke('Actieve Vitologists',m.vitologists,'','unieke leden',dp('vitologists'))+
+    ke('Actieve Vitologists',ACTIVE_VITOLOGISTS,'c-blue c-bluebdr','op basis van Vitologists tab',null)+
     ke('VitoQ sessies',m.vitoqs,'','',dp('vitoqs'))+
     ke('Facturen totaal',m.count,'','betaald + openstaand',null);
 }
+
 function renderCatTable(data,mp){
   const rows=CATS.map(cat=>{
     const items=data.filter(r=>r.category===cat);
@@ -576,6 +610,7 @@ function renderCatTable(data,mp){
   rows.push('<tr class="tbl-total"><td>Totaal</td><td style="font-family:\'DM Mono\',monospace">'+fmtEur(totPaid+totOpen)+'</td><td style="font-family:\'DM Mono\',monospace">'+fmtEur(totPaid)+'</td><td style="font-family:\'DM Mono\',monospace">'+fmtEur(totOpen)+'</td><td style="font-family:\'DM Mono\',monospace">100%</td><td></td></tr>');
   document.getElementById('scat-tbl').innerHTML='<thead><tr><th>Categorie</th><th>Totaal excl. BTW</th><th>Betaald</th><th>Openstaand</th><th>Aandeel</th><th>vs vorige</th></tr></thead><tbody>'+rows.join('')+'</tbody>';
 }
+
 function renderSalesCharts(data){
   const byMonth={};
   data.forEach(r=>{const k=r.datum.getFullYear()+'-'+String(r.datum.getMonth()+1).padStart(2,'0');byMonth[k]=(byMonth[k]||0)+r.amtExcl;});
@@ -589,45 +624,56 @@ function renderSalesCharts(data){
   SC_CAT=new Chart(document.getElementById('sc-cat'),{type:'doughnut',data:{labels:CATS,datasets:[{data:catVals,backgroundColor:catCols,borderWidth:2,borderColor:'#fff'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},cutout:'60%'}});
   document.getElementById('sc-legend').innerHTML=CATS.map((c,i)=>'<div class="leg-item"><div class="leg-dot" style="background:'+catCols[i]+'"></div>'+c+'</div>').join('');
 }
+
 function renderSalesDrillTable(data){
   const MN=['Jan','Feb','Mrt','Apr','Mei','Jun','Jul','Aug','Sep','Okt','Nov','Dec'];
   const tree={};
   data.forEach(r=>{const d=r.datum,y=d.getFullYear(),mo=d.getMonth(),q=Math.floor(mo/3);if(!tree[y])tree[y]={rows:[],q:{}};tree[y].rows.push(r);if(!tree[y].q[q])tree[y].q[q]={rows:[],m:{}};tree[y].q[q].rows.push(r);if(!tree[y].q[q].m[mo])tree[y].q[q].m[mo]={rows:[]};tree[y].q[q].m[mo].rows.push(r);});
-  const aggS=rows=>{const paid=rows.filter(r=>r.status==='betaald').reduce((s,r)=>s+r.amtExcl,0);const open=rows.filter(r=>r.status==='openstaand').reduce((s,r)=>s+r.amtExcl,0);const vit=new Set(rows.filter(r=>r.category==='Vitologist').map(r=>r.memberId)).size;const vq=rows.filter(r=>r.category==='VitoQ').length;return{paid,open,total:paid+open,vit,vq,count:rows.length};};
-  const thd='<thead><tr><th>Periode</th><th>Totaal</th><th>Betaald</th><th>Openstaand</th><th>Facturen</th><th>Vitologists</th><th>VitoQ</th></tr></thead>';
+  const aggS=rows=>{const paid=rows.filter(r=>r.status==='betaald').reduce((s,r)=>s+r.amtExcl,0);const open=rows.filter(r=>r.status==='openstaand').reduce((s,r)=>s+r.amtExcl,0);const vq=rows.filter(r=>r.category==='VitoQ').length;return{paid,open,total:paid+open,vq,count:rows.length};};
+  const thd='<thead><tr><th>Periode</th><th>Totaal</th><th>Betaald</th><th>Openstaand</th><th>Facturen</th><th>VitoQ</th></tr></thead>';
   let html='',rid=0;
-  salesExportData=[['Periode','Totaal','Betaald','Openstaand','Facturen','Vitologists','VitoQ']];
+  salesExportData=[['Periode','Totaal','Betaald','Openstaand','Facturen','VitoQ']];
   Object.keys(tree).sort().reverse().forEach(y=>{
     const yid='sy'+(rid++);const yg=aggS(tree[y].rows);
-    salesExportData.push([y,yg.total.toFixed(2),yg.paid.toFixed(2),yg.open.toFixed(2),yg.count,yg.vit,yg.vq]);
-    html+=`<tr class="dr dr-y" onclick="toggleDrill('${yid}')"><td><span class="arr" id="a-${yid}">▶</span>${y}</td><td style="font-family:'DM Mono',monospace;font-weight:600">${fmtEur(yg.total)}</td><td style="font-family:'DM Mono',monospace"><span class="badge b-paid">${fmtEur(yg.paid)}</span></td><td style="font-family:'DM Mono',monospace"><span class="badge b-open2">${fmtEur(yg.open)}</span></td><td>${yg.count}</td><td>${yg.vit}</td><td>${yg.vq}</td></tr>`;
+    salesExportData.push([y,yg.total.toFixed(2),yg.paid.toFixed(2),yg.open.toFixed(2),yg.count,yg.vq]);
+    html+=`<tr class="dr dr-y" onclick="toggleDrill('${yid}')"><td><span class="arr" id="a-${yid}">▶</span>${y}</td><td style="font-family:'DM Mono',monospace;font-weight:600">${fmtEur(yg.total)}</td><td style="font-family:'DM Mono',monospace"><span class="badge b-paid">${fmtEur(yg.paid)}</span></td><td style="font-family:'DM Mono',monospace"><span class="badge b-open2">${fmtEur(yg.open)}</span></td><td>${yg.count}</td><td>${yg.vq}</td></tr>`;
     Object.keys(tree[y].q).sort((a,b)=>+b-+a).forEach(q=>{
       const qid='sq'+(rid++);const qlbl='Q'+(+q+1)+' '+y;const qg=aggS(tree[y].q[q].rows);
-      salesExportData.push([qlbl,qg.total.toFixed(2),qg.paid.toFixed(2),qg.open.toFixed(2),qg.count,qg.vit,qg.vq]);
-      html+=`<tr class="dr dr-q dc" id="c-${yid}" onclick="toggleDrill('${qid}')"><td><span class="arr" id="a-${qid}">▶</span>${qlbl}</td><td style="font-family:'DM Mono',monospace;font-weight:600">${fmtEur(qg.total)}</td><td style="font-family:'DM Mono',monospace"><span class="badge b-paid">${fmtEur(qg.paid)}</span></td><td style="font-family:'DM Mono',monospace"><span class="badge b-open2">${fmtEur(qg.open)}</span></td><td>${qg.count}</td><td>${qg.vit}</td><td>${qg.vq}</td></tr>`;
+      salesExportData.push([qlbl,qg.total.toFixed(2),qg.paid.toFixed(2),qg.open.toFixed(2),qg.count,qg.vq]);
+      html+=`<tr class="dr dr-q dc" id="c-${yid}" onclick="toggleDrill('${qid}')"><td><span class="arr" id="a-${qid}">▶</span>${qlbl}</td><td style="font-family:'DM Mono',monospace;font-weight:600">${fmtEur(qg.total)}</td><td style="font-family:'DM Mono',monospace"><span class="badge b-paid">${fmtEur(qg.paid)}</span></td><td style="font-family:'DM Mono',monospace"><span class="badge b-open2">${fmtEur(qg.open)}</span></td><td>${qg.count}</td><td>${qg.vq}</td></tr>`;
       Object.keys(tree[y].q[q].m).sort((a,b)=>+b-+a).forEach(mo=>{
         const mid='sm'+(rid++);const mlbl=MN[+mo]+' '+y;const mg=aggS(tree[y].q[q].m[mo].rows);
-        salesExportData.push([mlbl,mg.total.toFixed(2),mg.paid.toFixed(2),mg.open.toFixed(2),mg.count,mg.vit,mg.vq]);
-        html+=`<tr class="dr dr-m dc" id="c-${qid}" onclick="toggleDrill('${mid}')"><td><span class="arr" id="a-${mid}">▶</span>— ${mlbl}</td><td style="font-family:'DM Mono',monospace">${fmtEur(mg.total)}</td><td style="font-family:'DM Mono',monospace"><span class="badge b-paid">${fmtEur(mg.paid)}</span></td><td style="font-family:'DM Mono',monospace"><span class="badge b-open2">${fmtEur(mg.open)}</span></td><td>${mg.count}</td><td>${mg.vit}</td><td>${mg.vq}</td></tr>`;
+        salesExportData.push([mlbl,mg.total.toFixed(2),mg.paid.toFixed(2),mg.open.toFixed(2),mg.count,mg.vq]);
+        html+=`<tr class="dr dr-m dc" id="c-${qid}" onclick="toggleDrill('${mid}')"><td><span class="arr" id="a-${mid}">▶</span>— ${mlbl}</td><td style="font-family:'DM Mono',monospace">${fmtEur(mg.total)}</td><td style="font-family:'DM Mono',monospace"><span class="badge b-paid">${fmtEur(mg.paid)}</span></td><td style="font-family:'DM Mono',monospace"><span class="badge b-open2">${fmtEur(mg.open)}</span></td><td>${mg.count}</td><td>${mg.vq}</td></tr>`;
       });
     });
   });
   const totG=aggS(data);
-  html+=`<tr class="tbl-total"><td>Totaal</td><td style="font-family:'DM Mono',monospace">${fmtEur(totG.total)}</td><td style="font-family:'DM Mono',monospace">${fmtEur(totG.paid)}</td><td style="font-family:'DM Mono',monospace">${fmtEur(totG.open)}</td><td>${totG.count}</td><td>${totG.vit}</td><td>${totG.vq}</td></tr>`;
-  if(salesComparing){const{from,to,pf,pt}=getSalesRange();const prevData=filtSales(pf,pt);if(prevData.length>0){const pg=aggS(prevData);const dp=(c,p)=>{if(p===0)return'—';const d=Math.round((c-p)/p*100),sg=d>=0?'+':'';return'<span class="'+(d>0?'delta-up':d<0?'delta-dn':'')+'" >'+sg+d+'%</span>';};html+='<tr class="tbl-delta"><td>Δ% vs vorige periode</td><td>'+dp(totG.total,pg.total)+'</td><td>'+dp(totG.paid,pg.paid)+'</td><td>'+dp(totG.open,pg.open)+'</td><td>'+dp(totG.count,pg.count)+'</td><td>'+dp(totG.vit,pg.vit)+'</td><td>'+dp(totG.vq,pg.vq)+'</td></tr>';}}
+  html+=`<tr class="tbl-total"><td>Totaal</td><td style="font-family:'DM Mono',monospace">${fmtEur(totG.total)}</td><td style="font-family:'DM Mono',monospace">${fmtEur(totG.paid)}</td><td style="font-family:'DM Mono',monospace">${fmtEur(totG.open)}</td><td>${totG.count}</td><td>${totG.vq}</td></tr>`;
+  if(salesComparing){const{from,to,pf,pt}=getSalesRange();const prevData=filtSales(pf,pt);if(prevData.length>0){const pg=aggS(prevData);const dp=(c,p)=>{if(p===0)return'—';const d=Math.round((c-p)/p*100),sg=d>=0?'+':'';return'<span class="'+(d>0?'delta-up':d<0?'delta-dn':'')+'" >'+sg+d+'%</span>';};html+='<tr class="tbl-delta"><td>Δ% vs vorige periode</td><td>'+dp(totG.total,pg.total)+'</td><td>'+dp(totG.paid,pg.paid)+'</td><td>'+dp(totG.open,pg.open)+'</td><td>'+dp(totG.count,pg.count)+'</td><td>'+dp(totG.vq,pg.vq)+'</td></tr>';}}
   document.getElementById('sdrill-tbl').innerHTML=thd+'<tbody>'+html+'</tbody>';
 }
+
 function renderSalesLocTable(data){
   const locs={};
-  data.forEach(r=>{const k=r.location||'Onbekend';if(!locs[k])locs[k]={paid:0,open:0,count:0,vit:new Set(),vq:0};locs[k].count++;if(r.status==='betaald')locs[k].paid+=r.amtExcl;else locs[k].open+=r.amtExcl;if(r.category==='Vitologist')locs[k].vit.add(r.memberId);if(r.category==='VitoQ')locs[k].vq++;});
-  const rows=Object.entries(locs).sort((a,b)=>(b[1].paid+b[1].open)-(a[1].paid+a[1].open)).map(([k,v])=>'<tr><td style="font-weight:500">'+k+'</td><td style="font-family:\'DM Mono\',monospace;font-weight:600">'+fmtEur(v.paid+v.open)+'</td><td style="font-family:\'DM Mono\',monospace"><span class="badge b-paid">'+fmtEur(v.paid)+'</span></td><td style="font-family:\'DM Mono\',monospace"><span class="badge b-open2">'+fmtEur(v.open)+'</span></td><td>'+v.count+'</td><td>'+v.vit.size+'</td><td>'+v.vq+'</td></tr>');
-  document.getElementById('sloc-tbl').innerHTML='<thead><tr><th>Locatie</th><th>Totaal</th><th>Betaald</th><th>Openstaand</th><th>Facturen</th><th>Vitologists</th><th>VitoQ</th></tr></thead><tbody>'+rows.join('')+'</tbody>';
+  data.forEach(r=>{
+    const k=r.location||'Onbekend';
+    if(k==='Vitology Rotterdam')return;
+    if(!locs[k])locs[k]={paid:0,open:0,count:0,vq:0};
+    locs[k].count++;
+    if(r.status==='betaald')locs[k].paid+=r.amtExcl;else locs[k].open+=r.amtExcl;
+    if(r.category==='VitoQ')locs[k].vq++;
+  });
+  const rows=Object.entries(locs).sort((a,b)=>(b[1].paid+b[1].open)-(a[1].paid+a[1].open)).map(([k,v])=>'<tr><td style="font-weight:500">'+k+'</td><td style="font-family:\'DM Mono\',monospace;font-weight:600">'+fmtEur(v.paid+v.open)+'</td><td style="font-family:\'DM Mono\',monospace"><span class="badge b-paid">'+fmtEur(v.paid)+'</span></td><td style="font-family:\'DM Mono\',monospace"><span class="badge b-open2">'+fmtEur(v.open)+'</span></td><td>'+v.count+'</td><td>'+v.vq+'</td></tr>');
+  document.getElementById('sloc-tbl').innerHTML='<thead><tr><th>Locatie</th><th>Totaal</th><th>Betaald</th><th>Openstaand</th><th>Facturen</th><th>VitoQ</th></tr></thead><tbody>'+rows.join('')+'</tbody>';
 }
+
 function exportSalesCSV(){
   const rows=salesExportData.map(r=>r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(','));
   const blob=new Blob([rows.join('\n')],{type:'text/csv;charset=utf-8;'});
   const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='vitology_sales.csv';a.click();URL.revokeObjectURL(url);
 }
+
 function updateSales(){
   const{from,to,pf,pt}=getSalesRange();
   const data=filtSales(from,to);const prev=salesComparing?filtSales(pf,pt):null;
@@ -637,11 +683,28 @@ function updateSales(){
   else{ban.className='cmp-banner';}
   renderSalesKPIs(m,mp,salesComparing);renderCatTable(data,mp);renderSalesCharts(data);renderSalesDrillTable(data);renderSalesLocTable(data);
 }
+
+async function loadVitologists(){
+  try{
+    const res=await fetch(VITOLOGISTS_CSV);
+    if(!res.ok)return;
+    const txt=await res.text();
+    const rows=parseCSV(txt);
+    const col='Vitologist?';
+    ACTIVE_VITOLOGISTS=rows.filter(r=>{
+      const get=k=>{const f=Object.keys(r).find(x=>x.trim().toLowerCase()===k.toLowerCase());return f?(r[f]||'').trim():'';};
+      return get(col).toUpperCase()==='JA';
+    }).length;
+  }catch(e){console.error('Vitologists load error:',e);}
+}
+
 async function loadSales(){
   try{
+    await loadVitologists();
     const res=await fetch(SALES_CSV);if(!res.ok)throw new Error('HTTP '+res.status);
     const txt=await res.text();
     SALES_DATA=parseCSV(txt).map(mapSalesRow).filter(r=>r.datum);
+    SALES_DATA=SALES_DATA.filter(r=>r.location!=='Vitology Rotterdam');
     SALES_DATA.forEach(r=>r.category=categorizeSub(r.subscription));
     document.getElementById('sales-loading').style.display='none';
     document.getElementById('sales-dash').style.display='block';
@@ -652,12 +715,14 @@ async function loadSales(){
     document.getElementById('sales-err').style.display='block';
   }
 }
+
 document.getElementById('ssp').addEventListener('change',function(){document.getElementById('scd').className=this.value==='custom'?'cdates on':'cdates';updateSales();});
 document.getElementById('ssl').addEventListener('change',updateSales);
 document.getElementById('sst').addEventListener('change',updateSales);
 document.getElementById('sdf').addEventListener('change',updateSales);
 document.getElementById('sdt').addEventListener('change',updateSales);
 document.getElementById('sCmpBtn').addEventListener('click',function(){salesComparing=!salesComparing;this.classList.toggle('on',salesComparing);this.textContent=salesComparing?'↕ Vergelijking aan':'↕ Vergelijk met vorige periode';updateSales();});
+
 loadLeads();
 </script>
 </body>
