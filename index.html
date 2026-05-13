@@ -219,6 +219,10 @@ function mapRow(r){
   const get=k=>{const f=Object.keys(r).find(x=>x.trim().toLowerCase()===k.toLowerCase());return f?(r[f]||'').trim():'';};
   return{locatie:get('Vitology locatie'),bron:get('Bron'),datum:pd(get('Registratiedatum')),contacted:get('Contacted?'),proefsessie:pd(get('Datum proefsessie')),noshow:get('No show?'),factuurdatum:pd(get('eerste factuurdatum'))};
 }
+function fmtDate(d){
+  if(!d)return null;
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
 function getRange(){
   const p=document.getElementById('sp').value,now=new Date(),dow=(now.getDay()+6)%7;
   let from=null,to=null,pf=null,pt=null;
@@ -433,8 +437,8 @@ function renderGroupTable(data,key,id){
 }
 async function fetchAds(){
   const{from,to}=getRange();
-  const fmt=d=>d?d.toISOString().slice(0,10):null;
-  const qFrom=fmt(from),qTo=fmt(to);
+  const qFrom=fmtDate(from);
+  const qTo=fmtDate(to);
   const qs=(qFrom&&qTo)?'?from='+qFrom+'&to='+qTo:'';
   document.getElementById('ads-loading').style.display='block';
   document.getElementById('ads-tbl-wrap').style.display='none';
