@@ -531,24 +531,26 @@ let SC_OMZET=null,SC_CAT=null;
 let salesComparing=true;
 let currentSalesData=[];
 let salesExportData=[];
-const CATS=['Vitologist','VitoQ','Losse sessies','Seminars','Andere'];
-const CAT_COLORS={'Vitologist':'#2d5be3','VitoQ':'#1a6b4a','Losse sessies':'#e87d2d','Seminars':'#8c1a1a','Andere':'#a0a09a'};
+const CATS=['Vitologist','VitoQ','Losse sessies','Credit packs','Seminars','Andere'];
+const CAT_COLORS={'Vitologist':'#2d5be3','VitoQ':'#1a6b4a','Losse sessies':'#e87d2d','Credit packs':'#7a4a00','Seminars':'#8c1a1a','Andere':'#a0a09a'};
 
 function parseAmt(v){if(v===null||v===undefined||v==='')return 0;return parseFloat(String(v).replace(',','.').replace(/[^0-9.\-]/g,''))||0;}
 
-function categorizeSub(sub){
+function categorizeSub(sub,origin){
+  if(origin&&origin.toLowerCase()==='punchcard')return'Credit packs';
   if(!sub||sub.trim()==='')return'Andere';
   const s=sub.toLowerCase();
   if(s.includes('vitologist'))return'Vitologist';
   if(s.includes('vitoq'))return'VitoQ';
   if(['oxyboost','cellax','redlight','pulso','hbot','hyperbare','breathwork','lymfedrainage','ems','bioptimize'].some(x=>s.includes(x)))return'Losse sessies';
   if(s.includes('seminar'))return'Seminars';
+  if(['credit','pack','kickstart','protocol'].some(x=>s.includes(x)))return'Credit packs';
   return'Andere';
 }
 
 function mapSalesRow(r){
   const get=k=>{const f=Object.keys(r).find(x=>x.trim().toLowerCase()===k.toLowerCase());return f?(r[f]||'').trim():'';};
-  return{invoiceId:get('invoiceid')||get('invoiceId'),memberId:get('memberid')||get('memberId'),location:get('location'),memberName:get('membername')||get('memberName'),datum:pd(get('invoicedate')||get('invoiceDate')),amtExcl:parseAmt(get('amountexclvat')||get('amountExclVat')),amtIncl:parseAmt(get('amountinclvat')||get('amountInclVat')),status:get('invoicestatus')||get('invoiceStatus'),subscription:get('subscription'),category:''};
+  return{invoiceId:get('invoiceid')||get('invoiceId'),memberId:get('memberid')||get('memberId'),location:get('location'),memberName:get('membername')||get('memberName'),datum:pd(get('invoicedate')||get('invoiceDate')),amtExcl:parseAmt(get('amountexclvat')||get('amountExclVat')),amtIncl:parseAmt(get('amountinclvat')||get('amountInclVat')),status:get('invoicestatus')||get('invoiceStatus'),subscription:get('subscription'),origin:get('origin'),category:''};
 }
 
 function getSalesRange(){
@@ -582,7 +584,7 @@ function calcSales(data){
 }
 
 function renderSalesKPIs(m,mp,cmp){
-  const dp=(k)=>{if(!cmp||!mp||mp[k]===0)return null;const d=Math.round((m[k]-mp[k])/mp[k]*100);const sg=d>=0?'+':'';return{txt:sg+d+'%',cls:m[k]>=mp[k]?'up':'dn'};};
+  const dp=k=>{if(!cmp||!mp||mp[k]===0)return null;const d=Math.round((m[k]-mp[k])/mp[k]*100);const sg=d>=0?'+':'';return{txt:sg+d+'%',cls:m[k]>=mp[k]?'up':'dn'};};
   const ke=(lbl,val,cls,sub,cmpd)=>'<div class="kpi '+cls+'"><div class="kpi-lbl">'+lbl+'</div><div class="kpi-val">'+val+'</div>'+(sub?'<div class="kpi-sub">'+sub+'</div>':'')+(cmpd?'<div class="kpi-cmp '+cmpd.cls+'">'+cmpd.txt+'</div>':'')+'</div>';
   document.getElementById('skpis1').innerHTML=
     ke('Totale omzet',fmtEur(m.total),'c-green c-greenbdr',null,dp('total'))+
@@ -596,19 +598,31 @@ function renderSalesKPIs(m,mp,cmp){
 }
 
 function renderCatTable(data,mp){
+  const locs=[...new Set(data.map(r=>r.location).filter(l=>l&&l!=='Vitology Rotterdam'))].sort();
   const rows=CATS.map(cat=>{
     const items=data.filter(r=>r.category===cat);
     const paid=items.filter(r=>r.status==='betaald').reduce((s,r)=>s+r.amtExcl,0);
     const open=items.filter(r=>r.status==='openstaand').reduce((s,r)=>s+r.amtExcl,0);
-    const total=paid+open;const totalAll=data.reduce((s,r)=>s+r.amtExcl,0);
+    const total=paid+open;
+    const totalAll=data.reduce((s,r)=>s+r.amtExcl,0);
     const share=totalAll>0?Math.round(total/totalAll*100):0;
-    const prevTotal=mp?mp.catTotals[cat]:0;const dp=mp?dltPct(total,prevTotal):null;
-    return'<tr><td style="font-weight:500"><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:'+CAT_COLORS[cat]+';margin-right:6px"></span>'+cat+'</td><td style="font-family:\'DM Mono\',monospace;font-weight:500">'+fmtEur(total)+'</td><td style="font-family:\'DM Mono\',monospace"><span class="badge b-paid">'+fmtEur(paid)+'</span></td><td style="font-family:\'DM Mono\',monospace"><span class="badge b-open2">'+fmtEur(open)+'</span></td><td style="font-family:\'DM Mono\',monospace;color:var(--muted)">'+share+'%</td><td style="font-family:\'DM Mono\',monospace">'+(dp?'<span class="'+(dp.cls==='up'?'delta-up':dp.cls==='dn'?'delta-dn':'')+'" >'+dp.txt+'</span>':'—')+'</td></tr>';
+    const prevTotal=mp?mp.catTotals[cat]:0;
+    const dp=mp?dltPct(total,prevTotal):null;
+    const locCells=locs.map(loc=>{
+      const locTotal=items.filter(r=>r.location===loc).reduce((s,r)=>s+r.amtExcl,0);
+      return'<td style="font-family:\'DM Mono\',monospace;color:var(--muted)">'+fmtEur(locTotal)+'</td>';
+    }).join('');
+    return'<tr><td style="font-weight:500"><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:'+CAT_COLORS[cat]+';margin-right:6px"></span>'+cat+'</td><td style="font-family:\'DM Mono\',monospace;font-weight:500">'+fmtEur(total)+'</td><td style="font-family:\'DM Mono\',monospace"><span class="badge b-paid">'+fmtEur(paid)+'</span></td><td style="font-family:\'DM Mono\',monospace"><span class="badge b-open2">'+fmtEur(open)+'</span></td><td style="font-family:\'DM Mono\',monospace;color:var(--muted)">'+share+'%</td><td style="font-family:\'DM Mono\',monospace">'+(dp?'<span class="'+(dp.cls==='up'?'delta-up':dp.cls==='dn'?'delta-dn':'')+'" >'+dp.txt+'</span>':'—')+'</td>'+locCells+'</tr>';
   });
   const totPaid=data.filter(r=>r.status==='betaald').reduce((s,r)=>s+r.amtExcl,0);
   const totOpen=data.filter(r=>r.status==='openstaand').reduce((s,r)=>s+r.amtExcl,0);
-  rows.push('<tr class="tbl-total"><td>Totaal</td><td style="font-family:\'DM Mono\',monospace">'+fmtEur(totPaid+totOpen)+'</td><td style="font-family:\'DM Mono\',monospace">'+fmtEur(totPaid)+'</td><td style="font-family:\'DM Mono\',monospace">'+fmtEur(totOpen)+'</td><td style="font-family:\'DM Mono\',monospace">100%</td><td></td></tr>');
-  document.getElementById('scat-tbl').innerHTML='<thead><tr><th>Categorie</th><th>Totaal excl. BTW</th><th>Betaald</th><th>Openstaand</th><th>Aandeel</th><th>vs vorige</th></tr></thead><tbody>'+rows.join('')+'</tbody>';
+  const totLocCells=locs.map(loc=>{
+    const locTotal=data.filter(r=>r.location===loc).reduce((s,r)=>s+r.amtExcl,0);
+    return'<td style="font-family:\'DM Mono\',monospace">'+fmtEur(locTotal)+'</td>';
+  }).join('');
+  rows.push('<tr class="tbl-total"><td>Totaal</td><td style="font-family:\'DM Mono\',monospace">'+fmtEur(totPaid+totOpen)+'</td><td style="font-family:\'DM Mono\',monospace">'+fmtEur(totPaid)+'</td><td style="font-family:\'DM Mono\',monospace">'+fmtEur(totOpen)+'</td><td style="font-family:\'DM Mono\',monospace">100%</td><td></td>'+totLocCells+'</tr>');
+  const locHeaders=locs.map(l=>'<th>'+l.replace('Vitology ','')+'</th>').join('');
+  document.getElementById('scat-tbl').innerHTML='<thead><tr><th>Categorie</th><th>Totaal excl. BTW</th><th>Betaald</th><th>Openstaand</th><th>Aandeel</th><th>vs vorige</th>'+locHeaders+'</tr></thead><tbody>'+rows.join('')+'</tbody>';
 }
 
 function renderSalesCharts(data){
@@ -690,10 +704,9 @@ async function loadVitologists(){
     if(!res.ok)return;
     const txt=await res.text();
     const rows=parseCSV(txt);
-    const col='Vitologist?';
     ACTIVE_VITOLOGISTS=rows.filter(r=>{
       const get=k=>{const f=Object.keys(r).find(x=>x.trim().toLowerCase()===k.toLowerCase());return f?(r[f]||'').trim():'';};
-      return get(col).toUpperCase()==='JA';
+      return get('Vitologist?').toUpperCase()==='JA';
     }).length;
   }catch(e){console.error('Vitologists load error:',e);}
 }
@@ -705,7 +718,7 @@ async function loadSales(){
     const txt=await res.text();
     SALES_DATA=parseCSV(txt).map(mapSalesRow).filter(r=>r.datum);
     SALES_DATA=SALES_DATA.filter(r=>r.location!=='Vitology Rotterdam');
-    SALES_DATA.forEach(r=>r.category=categorizeSub(r.subscription));
+    SALES_DATA.forEach(r=>r.category=categorizeSub(r.subscription,r.origin));
     document.getElementById('sales-loading').style.display='none';
     document.getElementById('sales-dash').style.display='block';
     updateSales();
