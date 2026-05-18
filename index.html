@@ -504,14 +504,15 @@ document.getElementById('cmpBtn').addEventListener('click',function(){comparing=
 
 // ==================== SALES ====================
 let SALES_DATA=[],SC_OMZET=null,SC_CAT=null,salesComparing=true,currentSalesData=[],salesExportData=[];
-const CATS=['Vitologist','VitoQ','Losse sessies','Credit packs','Seminars','Andere'];
-const CAT_COLORS={'Vitologist':'#2d5be3','VitoQ':'#1a6b4a','Losse sessies':'#e87d2d','Credit packs':'#7a4a00','Seminars':'#8c1a1a','Andere':'#a0a09a'};
+const CATS=['Vitologist','VitoQ','Losse sessies','Credit packs','Seminars','Kassa / shop','Andere'];
+const CAT_COLORS={'Vitologist':'#2d5be3','VitoQ':'#1a6b4a','Losse sessies':'#e87d2d','Credit packs':'#7a4a00','Seminars':'#8c1a1a','Kassa / shop':'#6b3fa0','Andere':'#a0a09a'};
 const LOC_COLORS={'Vitology Antwerpen':'#2d5be3','Vitology Schilde':'#1a6b4a'};
 
 function parseAmt(v){if(v===null||v===undefined||v==='')return 0;return parseFloat(String(v).replace(',','.').replace(/[^0-9.\-]/g,''))||0;}
 
 function categorizeSub(sub,origin){
   if(origin&&origin.toLowerCase()==='punchcard')return'Credit packs';
+  if(origin&&origin.toLowerCase()==='cashregister')return'Kassa / shop';
   if(!sub||sub.trim()==='')return'Andere';
   const s=sub.toLowerCase();
   if(s.includes('vitologist'))return'Vitologist';
