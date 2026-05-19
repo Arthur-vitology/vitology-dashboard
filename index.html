@@ -71,12 +71,11 @@ td{padding:6px 10px;border-bottom:1px solid var(--bdr);white-space:nowrap}
 td.td-ant{background:#f5f8ff}
 td.td-sch{background:#f5fbf7}
 tr:last-child td{border-bottom:none}
-tbody tr:hover td{background:#fafaf8}
+tbody tr:hover td{background:#fafaf8!important}
 .badge{display:inline-block;padding:1px 7px;border-radius:20px;font-size:10px;font-weight:600;font-family:'DM Mono',monospace}
 .b-won{background:var(--gbg);color:var(--green)}.b-open{background:var(--bbg);color:var(--blue)}.b-lost{background:var(--rbg);color:var(--red)}
 .b-paid{background:var(--gbg);color:var(--green)}.b-open2{background:var(--abg);color:var(--amber)}
 .dr{cursor:pointer;user-select:none}
-.dr:hover td{background:#fafaf8}
 .dr-y td{font-size:13px;font-weight:700;background:var(--bg);border-top:1px solid var(--bdr)}
 .dr-q td{font-size:12px;font-weight:600}
 .dr-m td{font-size:12px;color:var(--muted)}
@@ -322,7 +321,6 @@ function mapLeadRow(r){
 function mapVitologistRow(r){
   const get=k=>{const f=Object.keys(r).find(x=>x.trim().toLowerCase()===k.toLowerCase());return f?(r[f]||'').trim():'';};
   return{
-    naam:get('Voornaam')+' '+get('Achternaam'),
     vestiging:get('Vestiging'),
     actief:get('Vitologist?').toUpperCase()==='JA',
     startdatum:pd(get('Datum Vitologist geworden')),
@@ -330,11 +328,13 @@ function mapVitologistRow(r){
   };
 }
 
-// Get active members at end of a specific month/year for a location
 function getActiveMembersAtEndOfMonth(year,month,loc){
   const endOfMonth=new Date(year,month+1,0,23,59,59);
+  const now=new Date();
+  const isCurrentMonth=year===now.getFullYear()&&month===now.getMonth();
   return VITOLOGISTS_DATA.filter(v=>{
     if(loc&&v.vestiging!==loc)return false;
+    if(isCurrentMonth)return v.actief;
     if(!v.startdatum)return false;
     if(v.startdatum>endOfMonth)return false;
     if(v.stopdatum&&v.stopdatum<=endOfMonth)return false;
@@ -342,7 +342,6 @@ function getActiveMembersAtEndOfMonth(year,month,loc){
   }).length;
 }
 
-// Get cancellations in a specific month/year for a location
 function getCancellationsInMonth(year,month,loc){
   const startOfMonth=new Date(year,month,1,0,0,0);
   const endOfMonth=new Date(year,month+1,0,23,59,59);
@@ -427,67 +426,54 @@ function deltaRow(label,cur,prv){
   return'<tr class="tbl-delta"><td>'+label+'</td><td></td>'+cells.join('')+'<td></td><td></td></tr>';
 }
 
-// ---- PER LOCATIE MODE ----
+function getSalesForMonth(y,mo,loc){
+  const locMap={'Antwerpen':'Vitology Antwerpen','Schilde':'Vitology Schilde'};
+  const start=new Date(y,mo,1,0,0,0);
+  const end=new Date(y,mo+1,0,23,59,59);
+  const rows=SALES_DATA.filter(r=>{
+    if(!r.datum)return false;
+    if(r.datum<start||r.datum>end)return false;
+    if(loc&&r.location!==locMap[loc])return false;
+    return true;
+  });
+  const memberships=rows.filter(r=>r.category==='Vitologist').reduce((s,r)=>s+r.amtExcl,0);
+  const upsells=rows.filter(r=>['VitoQ','Losse sessies','Credit packs',"Producten / programma's"].includes(r.category)).reduce((s,r)=>s+r.amtExcl,0);
+  const overig=rows.filter(r=>['Seminars','Andere'].includes(r.category)).reduce((s,r)=>s+r.amtExcl,0);
+  return{memberships,upsells,overig};
+}
+
 function renderLocTable(data){
   const MN=['Jan','Feb','Mrt','Apr','Mei','Jun','Jul','Aug','Sep','Okt','Nov','Dec'];
-  const cost=parseFloat(document.getElementById('ac').value)||0;
   const locs=['Antwerpen','Schilde'];
-
-  // Get all months in data
   const monthSet=new Set();
   data.forEach(r=>{
     const k=r.datum.getFullYear()+'-'+String(r.datum.getMonth()+1).padStart(2,'0');
     monthSet.add(k);
   });
   const months=[...monthSet].sort().reverse();
-
-  // Get sales data per month per loc
-  const getSalesForMonth=(y,mo,loc)=>{
-    const locMap={'Antwerpen':'Vitology Antwerpen','Schilde':'Vitology Schilde'};
-    const start=new Date(y,mo,1,0,0,0);
-    const end=new Date(y,mo+1,0,23,59,59);
-    const rows=SALES_DATA.filter(r=>{
-      if(!r.datum)return false;
-      if(r.datum<start||r.datum>end)return false;
-      if(loc&&r.location!==locMap[loc])return false;
-      return true;
-    });
-    const memberships=rows.filter(r=>r.category==='Vitologist').reduce((s,r)=>s+r.amtExcl,0);
-    const upsells=rows.filter(r=>['VitoQ','Losse sessies','Credit packs',"Producten / programma's"].includes(r.category)).reduce((s,r)=>s+r.amtExcl,0);
-    const overig=rows.filter(r=>['Seminars','Andere'].includes(r.category)).reduce((s,r)=>s+r.amtExcl,0);
-    return{memberships,upsells,overig,total:memberships+upsells+overig};
-  };
-
-  // Build header: cols per locatie group
   const locCols=['Leads','%Bereikt','Sessie','Show%','Won','Opzeg','Actief','Memb.','Upsell','Overig'];
   let thead='<thead>';
-  // Row 1: locatie group headers
   thead+='<tr><th rowspan="2" style="vertical-align:bottom">Maand</th>';
   locs.forEach(loc=>{
     const cls=loc==='Antwerpen'?'loc-ant':'loc-sch';
     thead+=`<th colspan="${locCols.length}" class="loc-header ${cls}">${loc}</th>`;
   });
-  // Total cols
   thead+=`<th colspan="5" class="loc-header loc-tot">Totaal</th>`;
-  thead+='</tr>';
-  // Row 2: sub-headers
-  thead+='<tr>';
+  thead+='</tr><tr>';
   locs.forEach(loc=>{
     const cls=loc==='Antwerpen'?'th-loc-ant':'th-loc-sch';
     locCols.forEach(c=>thead+=`<th class="${cls}">${c}</th>`);
   });
   ['Leads','%Bereikt','Won','Opzeg','Actief'].forEach(c=>thead+=`<th class="th-loc-tot">${c}</th>`);
   thead+='</tr></thead>';
-
   let tbody='<tbody>';
   months.forEach(mk=>{
     const[y,mo]=[+mk.split('-')[0],+mk.split('-')[1]-1];
     const mlbl=MN[mo]+' '+y;
     let row=`<tr><td style="font-weight:500">${mlbl}</td>`;
-
     locs.forEach(loc=>{
-      const locData=data.filter(r=>r.locatie===loc);
-      const monthData=locData.filter(r=>{
+      const monthData=data.filter(r=>{
+        if(r.locatie!==loc)return false;
         const k=r.datum.getFullYear()+'-'+String(r.datum.getMonth()+1).padStart(2,'0');
         return k===mk;
       });
@@ -499,13 +485,11 @@ function renderLocTable(data){
       const fm=v=>`<td class="${cls}" style="font-family:'DM Mono',monospace">${v}</td>`;
       row+=fm(g.t)+fm(g.t>0?pct(g.c,g.t)+'%':'—')+fm(g.s)+fm(g.sh+g.ns>0?pct(g.sh,g.sh+g.ns)+'%':'—')+fm(g.w)+fm(cancel)+fm(active)+fm(fmtEurK(sales.memberships))+fm(fmtEurK(sales.upsells))+fm(fmtEurK(sales.overig));
     });
-
-    // Totals
-    const monthData=data.filter(r=>{
+    const monthDataAll=data.filter(r=>{
       const k=r.datum.getFullYear()+'-'+String(r.datum.getMonth()+1).padStart(2,'0');
       return k===mk;
     });
-    const gt=aggLeads(monthData);
+    const gt=aggLeads(monthDataAll);
     const cancelTot=getCancellationsInMonth(y,mo,null);
     const activeTot=getActiveMembersAtEndOfMonth(y,mo,null);
     const fm2=v=>`<td style="font-family:'DM Mono',monospace;font-weight:600">${v}</td>`;
@@ -514,14 +498,13 @@ function renderLocTable(data){
     tbody+=row;
   });
   tbody+='</tbody>';
-
   document.getElementById('ptbl').innerHTML=thead+tbody;
 }
 
 function renderDrillTable(data){
+  if(curMode==='loc'){renderLocTable(data);return;}
   const cost=parseFloat(document.getElementById('ac').value)||0;
   const isAbs=curMode==='abs';
-  if(curMode==='loc'){renderLocTable(data);return;}
   const MN=['Jan','Feb','Mrt','Apr','Mei','Jun','Jul','Aug','Sep','Okt','Nov','Dec'];
   const tree={};
   data.forEach(r=>{
@@ -576,7 +559,6 @@ function toggleDrill(id){
     else{c.classList.add('on');}
   });
 }
-
 function setMode(m){
   curMode=m;
   document.getElementById('mAbs').classList.toggle('active',m==='abs');
@@ -584,13 +566,11 @@ function setMode(m){
   document.getElementById('mLoc').classList.toggle('active',m==='loc');
   renderDrillTable(currentLeadsData);
 }
-
 function exportCSV(){
   const rows=csvExportData.map(r=>r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(','));
   const blob=new Blob([rows.join('\n')],{type:'text/csv;charset=utf-8;'});
   const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='vitology_leads.csv';a.click();URL.revokeObjectURL(url);
 }
-
 function renderGroupTable(data,key,id){
   const g={};
   data.forEach(r=>{const k=r[key]||'Onbekend';if(!g[k])g[k]={t:0,c:0,s:0,sh:0,w:0,o:0,l:0};const x=g[k];x.t++;if(['Ja','Lost','F-Up'].includes(r.contacted))x.c++;if(r.proefsessie)x.s++;if(r.noshow==='Aanwezig')x.sh++;if(r.factuurdatum)x.w++;if(r.contacted==='F-Up')x.o++;if(r.contacted==='Lost')x.l++;});
@@ -598,7 +578,6 @@ function renderGroupTable(data,key,id){
   const thd='<thead><tr><th>'+(key==='locatie'?'Locatie':'Bron')+'</th><th>Leads</th><th>Contacted</th><th>Sessie</th><th>Show</th><th>Won</th><th>Open</th><th>Lost</th><th>Win rate</th></tr></thead>';
   document.getElementById(id).innerHTML=thd+'<tbody>'+rows+'</tbody>';
 }
-
 async function fetchAds(){
   const{from,to}=getLeadsRange();
   const qs=(fmtDate(from)&&fmtDate(to))?'?from='+fmtDate(from)+'&to='+fmtDate(to):'';
@@ -660,7 +639,6 @@ const CAT_COLORS={'Vitologist':'#2d5be3','VitoQ':'#1a6b4a','Losse sessies':'#e87
 const LOC_COLORS={'Vitology Antwerpen':'#2d5be3','Vitology Schilde':'#1a6b4a'};
 
 function parseAmt(v){if(v===null||v===undefined||v==='')return 0;return parseFloat(String(v).replace(',','.').replace(/[^0-9.\-]/g,''))||0;}
-
 function categorizeSub(sub,origin){
   if(origin&&origin.toLowerCase()==='punchcard')return'Credit packs';
   if(origin&&origin.toLowerCase()==='cashregister')return"Producten / programma's";
@@ -673,12 +651,10 @@ function categorizeSub(sub,origin){
   if(['credit','pack','kickstart','protocol'].some(x=>s.includes(x)))return'Credit packs';
   return'Andere';
 }
-
 function mapSalesRow(r){
   const get=k=>{const f=Object.keys(r).find(x=>x.trim().toLowerCase()===k.toLowerCase());return f?(r[f]||'').trim():'';};
   return{invoiceId:get('invoiceid')||get('invoiceId'),memberId:get('memberid')||get('memberId'),location:get('location'),memberName:get('membername')||get('memberName'),datum:pd(get('invoicedate')||get('invoiceDate')),amtExcl:parseAmt(get('amountexclvat')||get('amountExclVat')),amtIncl:parseAmt(get('amountinclvat')||get('amountInclVat')),status:get('invoicestatus')||get('invoiceStatus'),subscription:get('subscription'),origin:get('origin'),category:''};
 }
-
 function getSalesRange(){
   const p=document.getElementById('ssp').value,now=new Date(),dow=(now.getDay()+6)%7;
   let from=null,to=null,pf=null,pt=null;
@@ -689,7 +665,6 @@ function getSalesRange(){
   else if(p==='custom'){const fv=document.getElementById('sdf').value,tv=document.getElementById('sdt').value;if(fv){const[y,mo,d]=fv.split('-');from=new Date(+y,+mo-1,+d,0,0,0);}if(tv){const[y,mo,d]=tv.split('-');to=new Date(+y,+mo-1,+d,23,59,59);}if(from&&to){const span=to-from;pt=new Date(from.getTime()-1);pf=new Date(pt.getTime()-span);pf.setHours(0,0,0);}}
   return{from,to,pf,pt};
 }
-
 function filtSales(from,to){
   const l=document.getElementById('ssl').value,st=document.getElementById('sst').value;
   return SALES_DATA.filter(r=>{
@@ -699,7 +674,6 @@ function filtSales(from,to){
     return true;
   });
 }
-
 function calcSales(data){
   const paid=data.filter(r=>r.status==='betaald');const open=data.filter(r=>r.status==='openstaand');
   const totalPaid=paid.reduce((s,r)=>s+r.amtExcl,0);const totalOpen=open.reduce((s,r)=>s+r.amtExcl,0);
@@ -708,7 +682,6 @@ function calcSales(data){
   const catTotals={};CATS.forEach(c=>catTotals[c]=data.filter(r=>r.category===c).reduce((s,r)=>s+r.amtExcl,0));
   return{total,totalPaid,totalOpen,vitologists:ACTIVE_VITOLOGISTS,vitoqs,catTotals,count:data.length,paidCount:paid.length,openCount:open.length};
 }
-
 function renderSalesKPIs(m,mp,cmp){
   const dp=k=>{if(!cmp||!mp||mp[k]===0)return null;const d=Math.round((m[k]-mp[k])/mp[k]*100);const sg=d>=0?'+':'';return{txt:sg+d+'%',cls:m[k]>=mp[k]?'up':'dn'};};
   const ke=(lbl,val,cls,sub,cmpd)=>'<div class="kpi '+cls+'"><div class="kpi-lbl">'+lbl+'</div><div class="kpi-val">'+val+'</div>'+(sub?'<div class="kpi-sub">'+sub+'</div>':'')+(cmpd?'<div class="kpi-cmp '+cmpd.cls+'">'+cmpd.txt+'</div>':'')+'</div>';
@@ -722,7 +695,6 @@ function renderSalesKPIs(m,mp,cmp){
     ke('VitoQ sessies',m.vitoqs,'','',dp('vitoqs'))+
     ke('Facturen totaal',m.count,'','betaald + openstaand',null);
 }
-
 function renderCatTable(data,mp){
   const locs=[...new Set(data.map(r=>r.location).filter(l=>l&&l!=='Vitology Rotterdam'))].sort();
   const rows=CATS.map(cat=>{
@@ -750,7 +722,6 @@ function renderCatTable(data,mp){
   const locHeaders=locs.map(l=>'<th>'+l.replace('Vitology ','')+'</th>').join('');
   document.getElementById('scat-tbl').innerHTML='<thead><tr><th>Categorie</th><th>Totaal excl. BTW</th><th>Betaald</th><th>Openstaand</th><th>Aandeel</th><th>vs vorige</th>'+locHeaders+'</tr></thead><tbody>'+rows.join('')+'</tbody>';
 }
-
 function renderSalesCharts(data){
   const locs=[...new Set(data.map(r=>r.location).filter(l=>l&&l!=='Vitology Rotterdam'))].sort();
   const byMonth={};const byMonthLoc={};
@@ -771,17 +742,12 @@ function renderSalesCharts(data){
     borderColor:LOC_COLORS[loc]||'#a0a09a',
     borderWidth:1,borderRadius:3,
   }));
-  SC_OMZET=new Chart(document.getElementById('sc-omzet'),{
-    type:'bar',
-    data:{labels:mlbls,datasets:locDatasets},
-    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:true,position:'top',labels:{font:{size:10,family:'DM Mono'},boxWidth:10}}},scales:{x:{ticks:{font:{size:10,family:'DM Mono'},maxRotation:45},grid:{display:false}},y:{ticks:{font:{size:10,family:'DM Mono'},callback:v=>'€'+Math.round(v/1000)+'k'},grid:{color:'#f0eeea'}}}}
-  });
+  SC_OMZET=new Chart(document.getElementById('sc-omzet'),{type:'bar',data:{labels:mlbls,datasets:locDatasets},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:true,position:'top',labels:{font:{size:10,family:'DM Mono'},boxWidth:10}}},scales:{x:{ticks:{font:{size:10,family:'DM Mono'},maxRotation:45},grid:{display:false}},y:{ticks:{font:{size:10,family:'DM Mono'},callback:v=>'€'+Math.round(v/1000)+'k'},grid:{color:'#f0eeea'}}}}});
   const catVals=CATS.map(c=>Math.round(data.filter(r=>r.category===c).reduce((s,r)=>s+r.amtExcl,0)));
   const catCols=CATS.map(c=>CAT_COLORS[c]);
   SC_CAT=new Chart(document.getElementById('sc-cat'),{type:'doughnut',data:{labels:CATS,datasets:[{data:catVals,backgroundColor:catCols,borderWidth:2,borderColor:'#fff'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},cutout:'60%'}});
   document.getElementById('sc-legend').innerHTML=CATS.map((c,i)=>'<div class="leg-item"><div class="leg-dot" style="background:'+catCols[i]+'"></div>'+c+'</div>').join('');
 }
-
 function renderSalesDrillTable(data){
   const MN=['Jan','Feb','Mrt','Apr','Mei','Jun','Jul','Aug','Sep','Okt','Nov','Dec'];
   const tree={};
@@ -810,7 +776,6 @@ function renderSalesDrillTable(data){
   if(salesComparing){const{from,to,pf,pt}=getSalesRange();const prevData=filtSales(pf,pt);if(prevData.length>0){const pg=aggS(prevData);const dp=(c,p)=>{if(p===0)return'—';const d=Math.round((c-p)/p*100),sg=d>=0?'+':'';return'<span class="'+(d>0?'delta-up':d<0?'delta-dn':'')+'" >'+sg+d+'%</span>';};html+='<tr class="tbl-delta"><td>Δ% vs vorige periode</td><td>'+dp(totG.total,pg.total)+'</td><td>'+dp(totG.paid,pg.paid)+'</td><td>'+dp(totG.open,pg.open)+'</td><td>'+dp(totG.count,pg.count)+'</td><td>'+dp(totG.vq,pg.vq)+'</td></tr>';}}
   document.getElementById('sdrill-tbl').innerHTML=thd+'<tbody>'+html+'</tbody>';
 }
-
 function renderSalesLocTable(data){
   const locs={};
   data.forEach(r=>{
@@ -822,13 +787,11 @@ function renderSalesLocTable(data){
   const rows=Object.entries(locs).sort((a,b)=>(b[1].paid+b[1].open)-(a[1].paid+a[1].open)).map(([k,v])=>'<tr><td style="font-weight:500">'+k+'</td><td style="font-family:\'DM Mono\',monospace;font-weight:600">'+fmtEur(v.paid+v.open)+'</td><td style="font-family:\'DM Mono\',monospace"><span class="badge b-paid">'+fmtEur(v.paid)+'</span></td><td style="font-family:\'DM Mono\',monospace"><span class="badge b-open2">'+fmtEur(v.open)+'</span></td><td>'+v.count+'</td><td>'+v.vq+'</td></tr>');
   document.getElementById('sloc-tbl').innerHTML='<thead><tr><th>Locatie</th><th>Totaal</th><th>Betaald</th><th>Openstaand</th><th>Facturen</th><th>VitoQ</th></tr></thead><tbody>'+rows.join('')+'</tbody>';
 }
-
 function exportSalesCSV(){
   const rows=salesExportData.map(r=>r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(','));
   const blob=new Blob([rows.join('\n')],{type:'text/csv;charset=utf-8;'});
   const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='vitology_sales.csv';a.click();URL.revokeObjectURL(url);
 }
-
 function updateSales(){
   const{from,to,pf,pt}=getSalesRange();
   const data=filtSales(from,to);const prev=salesComparing?filtSales(pf,pt):null;
@@ -838,20 +801,15 @@ function updateSales(){
   else{ban.className='cmp-banner';}
   renderSalesKPIs(m,mp,salesComparing);renderCatTable(data,mp);renderSalesCharts(data);renderSalesDrillTable(data);renderSalesLocTable(data);
 }
-
 async function loadVitologists(){
   try{
     const res=await fetch(VITOLOGISTS_CSV);if(!res.ok)return;
     const txt=await res.text();
     const rows=parseCSV(txt);
-    VITOLOGISTS_DATA=rows.map(mapVitologistRow).filter(r=>r.startdatum||r.stopdatum);
-    ACTIVE_VITOLOGISTS=rows.filter(r=>{
-      const get=k=>{const f=Object.keys(r).find(x=>x.trim().toLowerCase()===k.toLowerCase());return f?(r[f]||'').trim():'';};
-      return get('Vitologist?').toUpperCase()==='JA';
-    }).length;
+    VITOLOGISTS_DATA=rows.map(mapVitologistRow);
+    ACTIVE_VITOLOGISTS=VITOLOGISTS_DATA.filter(r=>r.actief).length;
   }catch(e){console.error('Vitologists load error:',e);}
 }
-
 async function loadSales(){
   try{
     await loadVitologists();
@@ -869,7 +827,6 @@ async function loadSales(){
     document.getElementById('sales-err').style.display='block';
   }
 }
-
 document.getElementById('ssp').addEventListener('change',function(){document.getElementById('scd').className=this.value==='custom'?'cdates on':'cdates';updateSales();});
 document.getElementById('ssl').addEventListener('change',updateSales);
 document.getElementById('sst').addEventListener('change',updateSales);
