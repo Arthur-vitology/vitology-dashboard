@@ -21,7 +21,7 @@ header{background:var(--surf);border-bottom:1px solid var(--bdr);padding:14px 28
 .tabs{display:flex;gap:2px;background:var(--bg);padding:2px;border-radius:8px;border:1px solid var(--bdr)}
 .tab{padding:6px 16px;border-radius:6px;border:none;background:transparent;font-size:13px;font-weight:500;color:var(--muted);cursor:pointer;font-family:'DM Sans',sans-serif;white-space:nowrap}
 .tab.active{background:var(--surf);color:var(--txt);border:1px solid var(--bdr);box-shadow:0 1px 3px rgba(0,0,0,.06)}
-.wrap{max-width:1280px;margin:0 auto;padding:20px 28px}
+.wrap{max-width:1400px;margin:0 auto;padding:20px 28px}
 .tab-content{display:none}.tab-content.active{display:block}
 .filters{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px;background:var(--surf);border:1px solid var(--bdr);border-radius:10px;padding:12px 16px;align-items:flex-end}
 .fg{display:flex;flex-direction:column;gap:3px}
@@ -64,9 +64,14 @@ header{background:var(--surf);border-bottom:1px solid var(--bdr);padding:14px 28
 .tbl-wrap{overflow-x:auto}
 table{width:100%;border-collapse:collapse;font-size:12px}
 th{text-align:left;padding:7px 10px;border-bottom:2px solid var(--bdr);font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;white-space:nowrap;background:var(--bg)}
+th.th-loc-ant{background:#e8f0fb;color:var(--blue)}
+th.th-loc-sch{background:#e8f5ee;color:var(--green)}
+th.th-loc-tot{background:var(--bg);color:var(--muted)}
 td{padding:6px 10px;border-bottom:1px solid var(--bdr);white-space:nowrap}
+td.td-ant{background:#f5f8ff}
+td.td-sch{background:#f5fbf7}
 tr:last-child td{border-bottom:none}
-tbody tr:hover{background:#fafaf8}
+tbody tr:hover td{background:#fafaf8}
 .badge{display:inline-block;padding:1px 7px;border-radius:20px;font-size:10px;font-weight:600;font-family:'DM Mono',monospace}
 .b-won{background:var(--gbg);color:var(--green)}.b-open{background:var(--bbg);color:var(--blue)}.b-lost{background:var(--rbg);color:var(--red)}
 .b-paid{background:var(--gbg);color:var(--green)}.b-open2{background:var(--abg);color:var(--amber)}
@@ -96,6 +101,10 @@ tbody tr:hover{background:#fafaf8}
 .state-msg{text-align:center;padding:60px 20px;color:var(--muted);font-size:14px}
 .spinner{width:26px;height:26px;border:2px solid var(--bdr);border-top-color:var(--acc);border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 10px}
 @keyframes spin{to{transform:rotate(360deg)}}
+.loc-header{text-align:center;font-size:9px;font-weight:700;padding:3px 6px;border-bottom:1px solid var(--bdr);letter-spacing:.08em;text-transform:uppercase}
+.loc-ant{background:#e8f0fb;color:var(--blue)}
+.loc-sch{background:#e8f5ee;color:var(--green)}
+.loc-tot{background:var(--bg);color:var(--muted)}
 @media(max-width:900px){
   .wrap{padding:14px}.two-col{grid-template-columns:1fr}.charts-row{grid-template-columns:1fr}
   .kpi-row.top{grid-template-columns:repeat(3,1fr)}.kpi-row.bot,.kpi-row.s4{grid-template-columns:repeat(2,1fr)}
@@ -153,14 +162,18 @@ tbody tr:hover{background:#fafaf8}
       <div class="kpi-row top" id="kpis1"></div>
       <div class="kpi-row bot" id="kpis2" style="margin-bottom:16px"></div>
       <div class="charts-row">
-        <div class="sec"><div class="sec-hdr"><div class="sec-title">Leads per dag</div></div><div style="position:relative;height:180px"><canvas id="cl" role="img" aria-label="Leads per dag">Leads per dag.</canvas></div></div>
-        <div class="sec"><div class="sec-hdr"><div class="sec-title">Status verdeling</div></div><div style="position:relative;height:140px"><canvas id="cs" role="img" aria-label="Status verdeling">Status verdeling.</canvas></div><div class="chart-legend" id="legend"></div></div>
+        <div class="sec"><div class="sec-hdr"><div class="sec-title">Leads per dag</div></div><div style="position:relative;height:180px"><canvas id="cl">Leads per dag.</canvas></div></div>
+        <div class="sec"><div class="sec-hdr"><div class="sec-title">Status verdeling</div></div><div style="position:relative;height:140px"><canvas id="cs">Status verdeling.</canvas></div><div class="chart-legend" id="legend"></div></div>
       </div>
       <div class="sec">
         <div class="sec-hdr">
           <div><div class="sec-title">Leads · alle segmenten</div><div style="font-size:10px;color:var(--muted);margin-top:2px">Klik op een rij om uit te klappen · meest recent bovenaan</div></div>
           <div class="hdr-controls">
-            <div class="mode-btns"><button class="mode-btn active" id="mAbs" onclick="setMode('abs')">Absoluut</button><button class="mode-btn" id="mPct" onclick="setMode('pct')">%</button></div>
+            <div class="mode-btns">
+              <button class="mode-btn active" id="mAbs" onclick="setMode('abs')">Absoluut</button>
+              <button class="mode-btn" id="mPct" onclick="setMode('pct')">%</button>
+              <button class="mode-btn" id="mLoc" onclick="setMode('loc')">Per locatie</button>
+            </div>
             <button class="export-btn" onclick="exportCSV()">↓ Export CSV</button>
           </div>
         </div>
@@ -227,8 +240,8 @@ tbody tr:hover{background:#fafaf8}
         <div class="tbl-wrap"><table id="scat-tbl"></table></div>
       </div>
       <div class="two-col">
-        <div class="sec"><div class="sec-hdr"><div class="sec-title">Omzet per maand</div></div><div style="position:relative;height:220px"><canvas id="sc-omzet" role="img" aria-label="Omzet per maand">Omzet per maand.</canvas></div></div>
-        <div class="sec"><div class="sec-hdr"><div class="sec-title">Verdeling per categorie</div></div><div style="position:relative;height:180px"><canvas id="sc-cat" role="img" aria-label="Verdeling per categorie">Verdeling.</canvas></div><div class="chart-legend" id="sc-legend"></div></div>
+        <div class="sec"><div class="sec-hdr"><div class="sec-title">Omzet per maand</div></div><div style="position:relative;height:220px"><canvas id="sc-omzet">Omzet per maand.</canvas></div></div>
+        <div class="sec"><div class="sec-hdr"><div class="sec-title">Verdeling per categorie</div></div><div style="position:relative;height:180px"><canvas id="sc-cat">Verdeling.</canvas></div><div class="chart-legend" id="sc-legend"></div></div>
       </div>
       <div class="sec">
         <div class="sec-hdr"><div><div class="sec-title">Omzet · alle segmenten</div><div style="font-size:10px;color:var(--muted);margin-top:2px">Klik op een rij om uit te klappen · meest recent bovenaan</div></div></div>
@@ -243,8 +256,10 @@ tbody tr:hover{background:#fafaf8}
 const LEADS_CSV='https://docs.google.com/spreadsheets/d/e/2PACX-1vQ6ul9nS3hs_bL9YVDy05O_kVdGoWsMHcqxME6DPqbarHPW_f4TqYAND05HvgsyEmPePTnTy8rRgXWv/pub?output=csv';
 const SALES_CSV='https://docs.google.com/spreadsheets/d/e/2PACX-1vS22Q6zpnQSBp9bXg-daDE-KTlhs1gU0ekwB8-UaUSnwhyyd2YQ2IB75OjBl9xwiA/pub?output=csv';
 const VITOLOGISTS_CSV='https://docs.google.com/spreadsheets/d/e/2PACX-1vQ6ul9nS3hs_bL9YVDy05O_kVdGoWsMHcqxME6DPqbarHPW_f4TqYAND05HvgsyEmPePTnTy8rRgXWv/pub?output=csv&gid=0';
+
 let activeTab='leads';
 let ACTIVE_VITOLOGISTS=0;
+let VITOLOGISTS_DATA=[];
 
 function switchTab(tab){
   activeTab=tab;
@@ -297,10 +312,47 @@ function dltPct(cur,prv){
 }
 function cpp(cost,n){return n>0&&cost>0?'€ '+Math.round(cost/n):'€ —';}
 function fmtEur(v){return'€ '+v.toLocaleString('nl-BE',{minimumFractionDigits:2,maximumFractionDigits:2});}
+function fmtEurK(v){return v>=1000?'€'+Math.round(v/1000)+'k':'€'+Math.round(v);}
+
 function mapLeadRow(r){
   const get=k=>{const f=Object.keys(r).find(x=>x.trim().toLowerCase()===k.toLowerCase());return f?(r[f]||'').trim():'';};
   return{locatie:get('Vitology locatie'),bron:get('Bron'),datum:pd(get('Registratiedatum')),contacted:get('Contacted?'),proefsessie:pd(get('Datum proefsessie')),noshow:get('No show?'),factuurdatum:pd(get('eerste factuurdatum'))};
 }
+
+function mapVitologistRow(r){
+  const get=k=>{const f=Object.keys(r).find(x=>x.trim().toLowerCase()===k.toLowerCase());return f?(r[f]||'').trim():'';};
+  return{
+    naam:get('Voornaam')+' '+get('Achternaam'),
+    vestiging:get('Vestiging'),
+    actief:get('Vitologist?').toUpperCase()==='JA',
+    startdatum:pd(get('Datum Vitologist geworden')),
+    stopdatum:pd(get('Datum stopzetting')),
+  };
+}
+
+// Get active members at end of a specific month/year for a location
+function getActiveMembersAtEndOfMonth(year,month,loc){
+  const endOfMonth=new Date(year,month+1,0,23,59,59);
+  return VITOLOGISTS_DATA.filter(v=>{
+    if(loc&&v.vestiging!==loc)return false;
+    if(!v.startdatum)return false;
+    if(v.startdatum>endOfMonth)return false;
+    if(v.stopdatum&&v.stopdatum<=endOfMonth)return false;
+    return true;
+  }).length;
+}
+
+// Get cancellations in a specific month/year for a location
+function getCancellationsInMonth(year,month,loc){
+  const startOfMonth=new Date(year,month,1,0,0,0);
+  const endOfMonth=new Date(year,month+1,0,23,59,59);
+  return VITOLOGISTS_DATA.filter(v=>{
+    if(loc&&v.vestiging!==loc)return false;
+    if(!v.stopdatum)return false;
+    return v.stopdatum>=startOfMonth&&v.stopdatum<=endOfMonth;
+  }).length;
+}
+
 function getLeadsRange(){
   const p=document.getElementById('sp').value,now=new Date(),dow=(now.getDay()+6)%7;
   let from=null,to=null,pf=null,pt=null;
@@ -374,9 +426,102 @@ function deltaRow(label,cur,prv){
   const cells=keys.map(k=>{const dp=dltPct(cur[k],prv[k]);return'<td class="'+(dp.cls==='up'?'delta-up':dp.cls==='dn'?'delta-dn':'')+'">'+dp.txt+'</td>';});
   return'<tr class="tbl-delta"><td>'+label+'</td><td></td>'+cells.join('')+'<td></td><td></td></tr>';
 }
+
+// ---- PER LOCATIE MODE ----
+function renderLocTable(data){
+  const MN=['Jan','Feb','Mrt','Apr','Mei','Jun','Jul','Aug','Sep','Okt','Nov','Dec'];
+  const cost=parseFloat(document.getElementById('ac').value)||0;
+  const locs=['Antwerpen','Schilde'];
+
+  // Get all months in data
+  const monthSet=new Set();
+  data.forEach(r=>{
+    const k=r.datum.getFullYear()+'-'+String(r.datum.getMonth()+1).padStart(2,'0');
+    monthSet.add(k);
+  });
+  const months=[...monthSet].sort().reverse();
+
+  // Get sales data per month per loc
+  const getSalesForMonth=(y,mo,loc)=>{
+    const locMap={'Antwerpen':'Vitology Antwerpen','Schilde':'Vitology Schilde'};
+    const start=new Date(y,mo,1,0,0,0);
+    const end=new Date(y,mo+1,0,23,59,59);
+    const rows=SALES_DATA.filter(r=>{
+      if(!r.datum)return false;
+      if(r.datum<start||r.datum>end)return false;
+      if(loc&&r.location!==locMap[loc])return false;
+      return true;
+    });
+    const memberships=rows.filter(r=>r.category==='Vitologist').reduce((s,r)=>s+r.amtExcl,0);
+    const upsells=rows.filter(r=>['VitoQ','Losse sessies','Credit packs',"Producten / programma's"].includes(r.category)).reduce((s,r)=>s+r.amtExcl,0);
+    const overig=rows.filter(r=>['Seminars','Andere'].includes(r.category)).reduce((s,r)=>s+r.amtExcl,0);
+    return{memberships,upsells,overig,total:memberships+upsells+overig};
+  };
+
+  // Build header: cols per locatie group
+  const locCols=['Leads','%Bereikt','Sessie','Show%','Won','Opzeg','Actief','Memb.','Upsell','Overig'];
+  let thead='<thead>';
+  // Row 1: locatie group headers
+  thead+='<tr><th rowspan="2" style="vertical-align:bottom">Maand</th>';
+  locs.forEach(loc=>{
+    const cls=loc==='Antwerpen'?'loc-ant':'loc-sch';
+    thead+=`<th colspan="${locCols.length}" class="loc-header ${cls}">${loc}</th>`;
+  });
+  // Total cols
+  thead+=`<th colspan="5" class="loc-header loc-tot">Totaal</th>`;
+  thead+='</tr>';
+  // Row 2: sub-headers
+  thead+='<tr>';
+  locs.forEach(loc=>{
+    const cls=loc==='Antwerpen'?'th-loc-ant':'th-loc-sch';
+    locCols.forEach(c=>thead+=`<th class="${cls}">${c}</th>`);
+  });
+  ['Leads','%Bereikt','Won','Opzeg','Actief'].forEach(c=>thead+=`<th class="th-loc-tot">${c}</th>`);
+  thead+='</tr></thead>';
+
+  let tbody='<tbody>';
+  months.forEach(mk=>{
+    const[y,mo]=[+mk.split('-')[0],+mk.split('-')[1]-1];
+    const mlbl=MN[mo]+' '+y;
+    let row=`<tr><td style="font-weight:500">${mlbl}</td>`;
+
+    locs.forEach(loc=>{
+      const locData=data.filter(r=>r.locatie===loc);
+      const monthData=locData.filter(r=>{
+        const k=r.datum.getFullYear()+'-'+String(r.datum.getMonth()+1).padStart(2,'0');
+        return k===mk;
+      });
+      const g=aggLeads(monthData);
+      const cancel=getCancellationsInMonth(y,mo,loc);
+      const active=getActiveMembersAtEndOfMonth(y,mo,loc);
+      const sales=getSalesForMonth(y,mo,loc);
+      const cls=loc==='Antwerpen'?'td-ant':'td-sch';
+      const fm=v=>`<td class="${cls}" style="font-family:'DM Mono',monospace">${v}</td>`;
+      row+=fm(g.t)+fm(g.t>0?pct(g.c,g.t)+'%':'—')+fm(g.s)+fm(g.sh+g.ns>0?pct(g.sh,g.sh+g.ns)+'%':'—')+fm(g.w)+fm(cancel)+fm(active)+fm(fmtEurK(sales.memberships))+fm(fmtEurK(sales.upsells))+fm(fmtEurK(sales.overig));
+    });
+
+    // Totals
+    const monthData=data.filter(r=>{
+      const k=r.datum.getFullYear()+'-'+String(r.datum.getMonth()+1).padStart(2,'0');
+      return k===mk;
+    });
+    const gt=aggLeads(monthData);
+    const cancelTot=getCancellationsInMonth(y,mo,null);
+    const activeTot=getActiveMembersAtEndOfMonth(y,mo,null);
+    const fm2=v=>`<td style="font-family:'DM Mono',monospace;font-weight:600">${v}</td>`;
+    row+=fm2(gt.t)+fm2(gt.t>0?pct(gt.c,gt.t)+'%':'—')+fm2(gt.w)+fm2(cancelTot)+fm2(activeTot);
+    row+='</tr>';
+    tbody+=row;
+  });
+  tbody+='</tbody>';
+
+  document.getElementById('ptbl').innerHTML=thead+tbody;
+}
+
 function renderDrillTable(data){
   const cost=parseFloat(document.getElementById('ac').value)||0;
   const isAbs=curMode==='abs';
+  if(curMode==='loc'){renderLocTable(data);return;}
   const MN=['Jan','Feb','Mrt','Apr','Mei','Jun','Jul','Aug','Sep','Okt','Nov','Dec'];
   const tree={};
   data.forEach(r=>{
@@ -422,6 +567,7 @@ function renderDrillTable(data){
   if(curYear&&prevYear)html+=deltaRow('Δ% vs vorig jaar',aggLeads(tree[curYear].rows),aggLeads(tree[prevYear].rows));
   document.getElementById('ptbl').innerHTML=thd+'<tbody>'+html+'</tbody>';
 }
+
 function toggleDrill(id){
   const arr=document.getElementById('a-'+id);const isOpen=arr&&arr.classList.contains('open');
   if(arr)arr.classList.toggle('open',!isOpen);
@@ -430,17 +576,21 @@ function toggleDrill(id){
     else{c.classList.add('on');}
   });
 }
+
 function setMode(m){
   curMode=m;
   document.getElementById('mAbs').classList.toggle('active',m==='abs');
   document.getElementById('mPct').classList.toggle('active',m==='pct');
+  document.getElementById('mLoc').classList.toggle('active',m==='loc');
   renderDrillTable(currentLeadsData);
 }
+
 function exportCSV(){
   const rows=csvExportData.map(r=>r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(','));
   const blob=new Blob([rows.join('\n')],{type:'text/csv;charset=utf-8;'});
   const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='vitology_leads.csv';a.click();URL.revokeObjectURL(url);
 }
+
 function renderGroupTable(data,key,id){
   const g={};
   data.forEach(r=>{const k=r[key]||'Onbekend';if(!g[k])g[k]={t:0,c:0,s:0,sh:0,w:0,o:0,l:0};const x=g[k];x.t++;if(['Ja','Lost','F-Up'].includes(r.contacted))x.c++;if(r.proefsessie)x.s++;if(r.noshow==='Aanwezig')x.sh++;if(r.factuurdatum)x.w++;if(r.contacted==='F-Up')x.o++;if(r.contacted==='Lost')x.l++;});
@@ -448,6 +598,7 @@ function renderGroupTable(data,key,id){
   const thd='<thead><tr><th>'+(key==='locatie'?'Locatie':'Bron')+'</th><th>Leads</th><th>Contacted</th><th>Sessie</th><th>Show</th><th>Won</th><th>Open</th><th>Lost</th><th>Win rate</th></tr></thead>';
   document.getElementById(id).innerHTML=thd+'<tbody>'+rows+'</tbody>';
 }
+
 async function fetchAds(){
   const{from,to}=getLeadsRange();
   const qs=(fmtDate(from)&&fmtDate(to))?'?from='+fmtDate(from)+'&to='+fmtDate(to):'';
@@ -693,6 +844,7 @@ async function loadVitologists(){
     const res=await fetch(VITOLOGISTS_CSV);if(!res.ok)return;
     const txt=await res.text();
     const rows=parseCSV(txt);
+    VITOLOGISTS_DATA=rows.map(mapVitologistRow).filter(r=>r.startdatum||r.stopdatum);
     ACTIVE_VITOLOGISTS=rows.filter(r=>{
       const get=k=>{const f=Object.keys(r).find(x=>x.trim().toLowerCase()===k.toLowerCase());return f?(r[f]||'').trim():'';};
       return get('Vitologist?').toUpperCase()==='JA';
@@ -726,6 +878,7 @@ document.getElementById('sdt').addEventListener('change',updateSales);
 document.getElementById('sCmpBtn').addEventListener('click',function(){salesComparing=!salesComparing;this.classList.toggle('on',salesComparing);this.textContent=salesComparing?'↕ Vergelijking aan':'↕ Vergelijk met vorige periode';updateSales();});
 
 loadLeads();
+loadVitologists();
 </script>
 </body>
 </html>
