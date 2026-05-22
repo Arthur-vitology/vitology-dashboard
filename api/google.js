@@ -31,7 +31,7 @@ module.exports = async function handler(req, res) {
     }
     const query = `SELECT metrics.cost_micros, metrics.impressions, metrics.clicks FROM customer WHERE segments.date BETWEEN '${dateFrom}' AND '${dateTo}'`;
     const adsResp = await fetch(
-      `https://googleads.googleapis.com/v16/customers/${customerId}/googleAds:search`,
+      `https://googleads.googleapis.com/v18/customers/${customerId}/googleAds:search`,
       {
         method: 'POST',
         headers: {
