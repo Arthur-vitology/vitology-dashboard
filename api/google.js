@@ -7,7 +7,7 @@ export default async function handler(req, res) {
   const refreshToken = process.env.GOOGLE_REFRESH_TOKEN;
   const customerId = process.env.GOOGLE_CUSTOMER_ID;
   if (!devToken || !clientId || !clientSecret || !refreshToken || !customerId) {
-    return res.status(500).json({ error: 'Google Ads credentials not configured' });
+    return res.status(500).json({ error: 'Google Ads credentials not configured', missing: {devToken:!!devToken,clientId:!!clientId,clientSecret:!!clientSecret,refreshToken:!!refreshToken,customerId:!!customerId} });
   }
   const { from, to } = req.query;
   const dateFrom = from ? from.slice(0,10) : new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0,10);
@@ -23,15 +23,13 @@ export default async function handler(req, res) {
         grant_type: 'refresh_token',
       }),
     });
-    const tokenData = await tokenResp.json();
+    const tokenText = await tokenResp.text();
+    let tokenData;
+    try { tokenData = JSON.parse(tokenText); } catch(e) { return res.status(400).json({ error: 'Token parse error', raw: tokenText.slice(0,200) }); }
     if (!tokenData.access_token) {
-      return res.status(400).json({ error: 'Failed to get Google access token' });
+      return res.status(400).json({ error: 'Failed to get Google access token', detail: tokenData });
     }
-    const query = `
-      SELECT metrics.cost_micros, metrics.impressions, metrics.clicks
-      FROM customer
-      WHERE segments.date BETWEEN '${dateFrom}' AND '${dateTo}'
-    `;
+    const query = `SELECT metrics.cost_micros, metrics.impressions, metrics.clicks FROM customer WHERE segments.date BETWEEN '${dateFrom}' AND '${dateTo}'`;
     const adsResp = await fetch(
       `https://googleads.googleapis.com/v16/customers/${customerId}/googleAds:search`,
       {
@@ -40,27 +38,4 @@ export default async function handler(req, res) {
           'Authorization': `Bearer ${tokenData.access_token}`,
           'developer-token': devToken,
           'login-customer-id': customerId,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ query: query.trim() }),
-      }
-    );
-    const adsData = await adsResp.json();
-    if (adsData.error) return res.status(400).json({ error: adsData.error.message, detail: adsData });
-    let spend = 0, impressions = 0, clicks = 0;
-    (adsData.results || []).forEach(row => {
-      spend += (row.metrics?.costMicros || 0) / 1_000_000;
-      impressions += parseInt(row.metrics?.impressions || 0);
-      clicks += parseInt(row.metrics?.clicks || 0);
-    });
-    return res.status(200).json({
-      platform: 'Google Ads',
-      spend: Math.round(spend * 100) / 100,
-      impressions, clicks,
-      ctr: impressions > 0 ? Math.round(clicks / impressions * 10000) / 100 : 0,
-      cpc: clicks > 0 ? Math.round(spend / clicks * 100) / 100 : 0,
-    });
-  } catch (err) {
-    return res.status(500).json({ error: err.message });
-  }
-}
+          'Content-Type': '
