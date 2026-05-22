@@ -29,7 +29,7 @@ module.exports = async function handler(req, res) {
     if (!tokenData.access_token) {
       return res.status(400).json({ error: 'Failed to get Google access token', detail: tokenData });
     }
-    const query = `SELECT metrics.cost_micros, metrics.impressions, metrics.clicks FROM customer WHERE segments.date BETWEEN '${dateFrom}' AND '${dateTo}'`;
+    const query = `SELECT metrics.cost_micros, metrics.impressions, metrics.clicks FROM campaign WHERE segments.date BETWEEN '${dateFrom}' AND '${dateTo}'`;
     const adsResp = await fetch(
       `https://googleads.googleapis.com/v18/customers/${customerId}/googleAds:search`,
       {
@@ -37,7 +37,6 @@ module.exports = async function handler(req, res) {
         headers: {
           'Authorization': `Bearer ${tokenData.access_token}`,
           'developer-token': devToken,
-          'login-customer-id': customerId,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ query }),
