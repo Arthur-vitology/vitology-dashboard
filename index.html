@@ -164,8 +164,8 @@ tbody tr:hover td{background:#fafaf8!important}
               <input type="number" id="ac-google" value="0" min="0" placeholder="0" class="ac-input" readonly style="background:var(--gbg)">
             </div>
             <div style="display:flex;flex-direction:column;gap:2px">
-              <span class="ac-label">TikTok</span>
-              <input type="number" id="ac-tiktok" value="0" min="0" placeholder="0" class="ac-input">
+              <span class="ac-label">TikTok (auto)</span>
+              <input type="number" id="ac-tiktok" value="0" min="0" placeholder="0" class="ac-input" readonly style="background:var(--gbg)">
             </div>
             <div style="display:flex;flex-direction:column;gap:2px">
               <span class="ac-label">Totaal</span>
@@ -201,14 +201,14 @@ tbody tr:hover td{background:#fafaf8!important}
       </div>
       <div class="sec">
         <div class="sec-hdr">
-          <div><div class="sec-title">Kost per funnel-stap</div><div style="font-size:10px;color:var(--muted);margin-top:2px">Google Ads kosten per stap · klik om uit te klappen</div></div>
+          <div><div class="sec-title">Kost per funnel-stap</div><div style="font-size:10px;color:var(--muted);margin-top:2px">Alle advertentiekosten per stap · klik om uit te klappen</div></div>
           <button class="export-btn" onclick="exportCostFunnelCSV()">↓ Export CSV</button>
         </div>
         <div class="tbl-wrap"><table id="cost-funnel-tbl"></table></div>
       </div>
       <div class="sec">
         <div class="sec-hdr">
-          <div><div class="sec-title">Advertentiekanalen</div><div style="font-size:10px;color:var(--muted);margin-top:2px">Meta & Google: automatisch · TikTok: manueel</div></div>
+          <div><div class="sec-title">Advertentiekanalen</div><div style="font-size:10px;color:var(--muted);margin-top:2px">Meta, Google & TikTok: automatisch</div></div>
           <button class="export-btn" onclick="refreshAds()">↻ Vernieuwen</button>
         </div>
         <div id="ads-loading" style="text-align:center;padding:20px;color:var(--muted);font-size:12px">Advertentiedata laden...</div>
@@ -279,8 +279,11 @@ const LEADS_CSV='https://docs.google.com/spreadsheets/d/e/2PACX-1vQ6ul9nS3hs_bL9
 const SALES_CSV='https://docs.google.com/spreadsheets/d/e/2PACX-1vS22Q6zpnQSBp9bXg-daDE-KTlhs1gU0ekwB8-UaUSnwhyyd2YQ2IB75OjBl9xwiA/pub?output=csv';
 const VITOLOGISTS_CSV='https://docs.google.com/spreadsheets/d/e/2PACX-1vQ6ul9nS3hs_bL9YVDy05O_kVdGoWsMHcqxME6DPqbarHPW_f4TqYAND05HvgsyEmPePTnTy8rRgXWv/pub?output=csv&gid=0';
 const GOOGLE_ADS_CSV='https://docs.google.com/spreadsheets/d/e/2PACX-1vTqXBJwIOEmZbrP59FWByhfA-O73BVtiunzmlCGKM2gTqr3vDezk9OIEDBKwhhZM68MbBDhTXpzebun/pub?output=csv';
+const META_TIKTOK_ADS_CSV='';
 
 let GOOGLE_ADS_DATA=[];
+let META_ADS_DATA=[];
+let TIKTOK_ADS_DATA=[];
 let activeTab='leads';
 let ACTIVE_VITOLOGISTS=0;
 let VITOLOGISTS_DATA=[];
@@ -375,18 +378,69 @@ async function loadGoogleAdsData(){
   }catch(e){console.error('Google Ads data error:',e);}
 }
 
+function filterAdRows(arr,from,to){
+  return arr.filter(r=>{
+    if(!r.datum)return false;
+    const ts=dayTs(r.datum);
+    if(from&&ts<dayTs(from))return false;
+    if(to&&ts>dayTs(to))return false;
+    return true;
+  });
+}
+function getMetaSpend(from,to){return filterAdRows(META_ADS_DATA,from,to).reduce((s,r)=>s+r.spend,0);}
+function getTikTokSpend(from,to){return filterAdRows(TIKTOK_ADS_DATA,from,to).reduce((s,r)=>s+r.spend,0);}
+function calcAdStats(arr,from,to){
+  const rows=filterAdRows(arr,from,to);
+  const spend=rows.reduce((s,r)=>s+r.spend,0);
+  const impressions=rows.reduce((s,r)=>s+r.impressions,0);
+  const clicks=rows.reduce((s,r)=>s+r.clicks,0);
+  return{spend:Math.round(spend*100)/100,impressions,clicks,ctr:impressions>0?Math.round(clicks/impressions*10000)/100:0,cpc:clicks>0?Math.round(spend/clicks*100)/100:0};
+}
+function getMetaStats(from,to){return calcAdStats(META_ADS_DATA,from,to);}
+function getTikTokStats(from,to){return calcAdStats(TIKTOK_ADS_DATA,from,to);}
+
+async function loadMetaTikTokAdsData(){
+  if(!META_TIKTOK_ADS_CSV)return;
+  try{
+    const res=await fetch(META_TIKTOK_ADS_CSV);
+    if(!res.ok)return;
+    const txt=await res.text();
+    const rows=parseCSV(txt);
+    rows.forEach(r=>{
+      const get=k=>{const f=Object.keys(r).find(x=>x.trim().toLowerCase()===k.toLowerCase());return f?(r[f]||'').trim():'';};
+      const entry={datum:pd(get('Datum')),spend:parseFloat(get('Spend'))||0,impressions:parseInt(get('Impressies'))||0,clicks:parseInt(get('Kliks'))||0};
+      if(!entry.datum)return;
+      const platform=get('Platform').toLowerCase();
+      if(platform==='meta')META_ADS_DATA.push(entry);
+      else if(platform==='tiktok')TIKTOK_ADS_DATA.push(entry);
+    });
+  }catch(e){console.error('Meta/TikTok Ads data error:',e);}
+}
+
+function mergeApiDaily(targetArray,dailyRows){
+  if(!dailyRows||!dailyRows.length)return;
+  dailyRows.forEach(row=>{
+    const d=pd(row.date);
+    if(!d)return;
+    const ts=dayTs(d);
+    const idx=targetArray.findIndex(r=>r.datum&&dayTs(r.datum)===ts);
+    if(idx>=0)targetArray.splice(idx,1);
+    targetArray.push({datum:d,spend:parseFloat(row.spend)||0,impressions:parseInt(row.impressions)||0,clicks:parseInt(row.clicks)||0});
+  });
+}
+
 function getTotalAdCost(from,to){
-  const meta=parseFloat(document.getElementById('ac-meta').value)||0;
-  const google=getGoogleAdsSpend(from,to);
-  const tiktok=parseFloat(document.getElementById('ac-tiktok').value)||0;
-  return meta+google+tiktok;
+  return getGoogleAdsSpend(from,to)+getMetaSpend(from,to)+getTikTokSpend(from,to);
 }
 
 function updateAdCosts(from,to){
+  const meta=getMetaSpend(from,to);
   const google=getGoogleAdsSpend(from,to);
+  const tiktok=getTikTokSpend(from,to);
+  document.getElementById('ac-meta').value=Math.round(meta*100)/100;
   document.getElementById('ac-google').value=Math.round(google*100)/100;
-  const total=getTotalAdCost(from,to);
-  document.getElementById('ac').value=Math.round(total);
+  document.getElementById('ac-tiktok').value=Math.round(tiktok*100)/100;
+  document.getElementById('ac').value=Math.round(meta+google+tiktok);
 }
 
 function mapLeadRow(r){
@@ -589,7 +643,7 @@ function renderDrillTable(data,from,to){
   const curYear=allYears[allYears.length-1];const prevYear=allYears[allYears.length-2];
   Object.keys(tree).sort().reverse().forEach(y=>{
     const yid='y'+(rid++);const yg=aggLeads(tree[y].rows);
-    const yCost=getGoogleAdsSpend(new Date(+y,0,1),new Date(+y,11,31,23,59,59))+(parseFloat(document.getElementById('ac-meta').value)||0);
+    const yCost=getTotalAdCost(new Date(+y,0,1),new Date(+y,11,31,23,59,59));
     csvExportData.push([y,yg.t,yg.c,yg.s,yg.sh,yg.w,yg.o,yg.l,pct(yg.w,yg.t)+'%',cpp(cost,yg.t)]);
     html+=`<tr class="dr dr-y" onclick="toggleDrill('${yid}')"><td><span class="arr" id="a-${yid}">▶</span>${y}</td>${renderLeadCells(yg,cost,isAbs)}</tr>`;
     Object.keys(tree[y].q).sort((a,b)=>+b-+a).forEach(q=>{
@@ -631,31 +685,31 @@ function renderCostFunnelTable(data,from,to){
     if(!tree[y].q[q])tree[y].q[q]={rows:[],m:{}};tree[y].q[q].rows.push(r);
     if(!tree[y].q[q].m[mo])tree[y].q[q].m[mo]={rows:[]};tree[y].q[q].m[mo].rows.push(r);
   });
-  const thd='<thead><tr><th>Periode</th><th>Ad kost (Google)</th><th>Kost/Lead</th><th>Kost/Contacted</th><th>Kost/Sessie</th><th>Kost/Show</th><th>Kost/Won</th></tr></thead>';
+  const thd='<thead><tr><th>Periode</th><th>Ad kost</th><th>Kost/Lead</th><th>Kost/Contacted</th><th>Kost/Sessie</th><th>Kost/Show</th><th>Kost/Won</th></tr></thead>';
   let html='',rid=0;
-  costFunnelExportData=[['Periode','Ad kost (Google)','Kost/Lead','Kost/Contacted','Kost/Sessie','Kost/Show','Kost/Won']];
+  costFunnelExportData=[['Periode','Ad kost','Kost/Lead','Kost/Contacted','Kost/Sessie','Kost/Show','Kost/Won']];
   const cp=(cost,v)=>cost>0&&v>0?(Math.round(cost/v*100)/100).toFixed(2):'—';
   Object.keys(tree).sort().reverse().forEach(y=>{
     const yid='cf'+(rid++);const yg=aggLeads(tree[y].rows);
-    const yCost=getGoogleAdsSpend(new Date(+y,0,1),new Date(+y,11,31,23,59,59));
+    const yCost=getTotalAdCost(new Date(+y,0,1),new Date(+y,11,31,23,59,59));
     costFunnelExportData.push([y,yCost.toFixed(2),cp(yCost,yg.t),cp(yCost,yg.c),cp(yCost,yg.s),cp(yCost,yg.sh),cp(yCost,yg.w)]);
     html+=`<tr class="dr dr-y" onclick="toggleDrill('${yid}')"><td><span class="arr" id="a-${yid}">▶</span>${y}</td>${renderCostFunnelCells(yg,yCost)}</tr>`;
     Object.keys(tree[y].q).sort((a,b)=>+b-+a).forEach(q=>{
       const qid='cf'+(rid++);const qlbl='Q'+(+q+1)+' '+y;const qg=aggLeads(tree[y].q[q].rows);
       const qFrom=new Date(+y,+q*3,1,0,0,0);const qTo=new Date(+y,+q*3+3,0,23,59,59);
-      const qCost=getGoogleAdsSpend(qFrom,qTo);
+      const qCost=getTotalAdCost(qFrom,qTo);
       costFunnelExportData.push([qlbl,qCost.toFixed(2),cp(qCost,qg.t),cp(qCost,qg.c),cp(qCost,qg.s),cp(qCost,qg.sh),cp(qCost,qg.w)]);
       html+=`<tr class="dr dr-q dc" id="c-${yid}" onclick="toggleDrill('${qid}')"><td><span class="arr" id="a-${qid}">▶</span>${qlbl}</td>${renderCostFunnelCells(qg,qCost)}</tr>`;
       Object.keys(tree[y].q[q].m).sort((a,b)=>+b-+a).forEach(mo=>{
         const mlbl=MN[+mo]+' '+y;const mg=aggLeads(tree[y].q[q].m[mo].rows);
         const mFrom=new Date(+y,+mo,1,0,0,0);const mTo=new Date(+y,+mo+1,0,23,59,59);
-        const mCost=getGoogleAdsSpend(mFrom,mTo);
+        const mCost=getTotalAdCost(mFrom,mTo);
         costFunnelExportData.push([mlbl,mCost.toFixed(2),cp(mCost,mg.t),cp(mCost,mg.c),cp(mCost,mg.s),cp(mCost,mg.sh),cp(mCost,mg.w)]);
         html+=`<tr class="dr-m dc" id="c-${qid}"><td>— ${mlbl}</td>${renderCostFunnelCells(mg,mCost)}</tr>`;
       });
     });
   });
-  const totG=aggLeads(data);const totCost=getGoogleAdsSpend(from,to);
+  const totG=aggLeads(data);const totCost=getTotalAdCost(from,to);
   html+=`<tr class="tbl-total"><td>Totaal</td>${renderCostFunnelCells(totG,totCost)}</tr>`;
   document.getElementById('cost-funnel-tbl').innerHTML=thd+'<tbody>'+html+'</tbody>';
 }
@@ -697,26 +751,29 @@ async function fetchAds(){
   const qs=(fmtDate(from)&&fmtDate(to))?'?from='+fmtDate(from)+'&to='+fmtDate(to):'';
   document.getElementById('ads-loading').style.display='block';
   document.getElementById('ads-tbl-wrap').style.display='none';
-  const metaResult=await fetch('/api/meta'+qs).then(r=>r.json()).catch(()=>({error:true}));
-  const metaSpend=metaResult.error?0:metaResult.spend||0;
-  document.getElementById('ac-meta').value=Math.round(metaSpend*100)/100;
+  const[metaResult,tiktokResult]=await Promise.all([
+    fetch('/api/meta'+qs).then(r=>r.json()).catch(()=>({error:true})),
+    fetch('/api/tiktok'+qs).then(r=>r.json()).catch(()=>({error:true})),
+  ]);
+  if(!metaResult.error&&metaResult.daily)mergeApiDaily(META_ADS_DATA,metaResult.daily);
+  if(!tiktokResult.error&&tiktokResult.daily)mergeApiDaily(TIKTOK_ADS_DATA,tiktokResult.daily);
   updateAdCosts(from,to);
+  const metaStats=getMetaStats(from,to);
   const googleStats=getGoogleAdsStats(from,to);
-  const tiktokSpend=parseFloat(document.getElementById('ac-tiktok').value)||0;
+  const tiktokStats=getTikTokStats(from,to);
   const fe=v=>v>0?'€ '+v.toLocaleString('nl-BE',{minimumFractionDigits:2,maximumFractionDigits:2}):'€ —';
   const fn=v=>v>0?v.toLocaleString('nl-BE'):'—';
   const fp=v=>v>0?v.toFixed(2)+'%':'—';
   const displayRows=[
-    {platform:'Meta',spend:metaSpend,impressions:metaResult.impressions||0,clicks:metaResult.clicks||0,ctr:metaResult.ctr||0,cpc:metaResult.cpc||0,error:!!metaResult.error},
-    {platform:'Google Ads',spend:googleStats.spend,impressions:googleStats.impressions,clicks:googleStats.clicks,ctr:googleStats.ctr,cpc:googleStats.cpc,auto:true},
-    {platform:'TikTok',spend:tiktokSpend,impressions:0,clicks:0,ctr:0,cpc:0,manual:true},
+    {platform:'Meta',...metaStats,error:!!metaResult.error&&META_ADS_DATA.length===0},
+    {platform:'Google Ads',...googleStats},
+    {platform:'TikTok',...tiktokStats,error:!!tiktokResult.error&&TIKTOK_ADS_DATA.length===0},
   ];
-  const ts=displayRows.reduce((s,r)=>s+r.spend,0);
-  const ti=displayRows.reduce((s,r)=>s+r.impressions,0);
-  const tc=displayRows.reduce((s,r)=>s+r.clicks,0);
+  const ts=displayRows.reduce((s,r)=>s+(r.error?0:r.spend),0);
+  const ti=displayRows.reduce((s,r)=>s+(r.error?0:r.impressions),0);
+  const tc=displayRows.reduce((s,r)=>s+(r.error?0:r.clicks),0);
   const dr=displayRows.map(r=>{
     if(r.error)return'<tr><td style="font-weight:500">'+r.platform+'</td><td colspan="5" style="color:var(--muted);font-size:11px">Niet geconfigureerd</td></tr>';
-    if(r.manual)return'<tr><td style="font-weight:500">'+r.platform+'</td><td style="font-family:\'DM Mono\',monospace">'+fe(r.spend)+'</td><td colspan="3" style="color:var(--muted);font-size:11px">Manueel ingevoerd</td><td></td></tr>';
     return'<tr><td style="font-weight:500">'+r.platform+'</td><td style="font-family:\'DM Mono\',monospace">'+fe(r.spend)+'</td><td style="font-family:\'DM Mono\',monospace">'+fn(r.impressions)+'</td><td style="font-family:\'DM Mono\',monospace">'+fn(r.clicks)+'</td><td style="font-family:\'DM Mono\',monospace">'+fp(r.ctr)+'</td><td style="font-family:\'DM Mono\',monospace">'+fe(r.cpc)+'</td></tr>';
   }).join('');
   const tr='<tr class="tbl-total"><td>Totaal</td><td style="font-family:\'DM Mono\',monospace">'+fe(ts)+'</td><td style="font-family:\'DM Mono\',monospace">'+fn(ti)+'</td><td style="font-family:\'DM Mono\',monospace">'+fn(tc)+'</td><td style="font-family:\'DM Mono\',monospace">'+fp(ti>0?tc/ti*100:0)+'</td><td style="font-family:\'DM Mono\',monospace">'+fe(tc>0?ts/tc:0)+'</td></tr>';
@@ -744,7 +801,7 @@ function update(){
 }
 async function loadLeads(){
   try{
-    await loadGoogleAdsData();
+    await Promise.all([loadGoogleAdsData(),loadMetaTikTokAdsData()]);
     const res=await fetch(LEADS_CSV);if(!res.ok)throw new Error('HTTP '+res.status);
     const txt=await res.text();
     LEADS_DATA=parseCSV(txt).map(mapLeadRow).filter(r=>r.datum);
@@ -761,7 +818,6 @@ async function loadLeads(){
 document.getElementById('sp').addEventListener('change',function(){document.getElementById('cd').className=this.value==='custom'?'cdates on':'cdates';update();fetchAds();});
 document.getElementById('sl').addEventListener('change',update);
 document.getElementById('sb').addEventListener('change',update);
-document.getElementById('ac-tiktok').addEventListener('input',function(){const{from,to}=getLeadsRange();updateAdCosts(from,to);update();});
 document.getElementById('df').addEventListener('change',function(){update();fetchAds();});
 document.getElementById('dt').addEventListener('change',function(){update();fetchAds();});
 document.getElementById('cmpBtn').addEventListener('click',function(){comparing=!comparing;this.classList.toggle('on',comparing);this.textContent=comparing?'↕ Vergelijking aan':'↕ Vergelijk met vorige periode';update();});
