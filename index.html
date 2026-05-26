@@ -201,7 +201,7 @@ tbody tr:hover td{background:#fafaf8!important}
       </div>
       <div class="sec">
         <div class="sec-hdr">
-          <div><div class="sec-title">Kost per funnel-stap</div><div style="font-size:10px;color:var(--muted);margin-top:2px">Advertentiekosten per stap in de lead funnel · klik om uit te klappen</div></div>
+          <div><div class="sec-title">Kost per funnel-stap</div><div style="font-size:10px;color:var(--muted);margin-top:2px">Google Ads kosten per stap · klik om uit te klappen</div></div>
           <button class="export-btn" onclick="exportCostFunnelCSV()">↓ Export CSV</button>
         </div>
         <div class="tbl-wrap"><table id="cost-funnel-tbl"></table></div>
@@ -631,31 +631,31 @@ function renderCostFunnelTable(data,from,to){
     if(!tree[y].q[q])tree[y].q[q]={rows:[],m:{}};tree[y].q[q].rows.push(r);
     if(!tree[y].q[q].m[mo])tree[y].q[q].m[mo]={rows:[]};tree[y].q[q].m[mo].rows.push(r);
   });
-  const thd='<thead><tr><th>Periode</th><th>Totale kost</th><th>Kost/Lead</th><th>Kost/Contacted</th><th>Kost/Sessie</th><th>Kost/Show</th><th>Kost/Won</th></tr></thead>';
+  const thd='<thead><tr><th>Periode</th><th>Ad kost (Google)</th><th>Kost/Lead</th><th>Kost/Contacted</th><th>Kost/Sessie</th><th>Kost/Show</th><th>Kost/Won</th></tr></thead>';
   let html='',rid=0;
-  costFunnelExportData=[['Periode','Totale kost','Kost/Lead','Kost/Contacted','Kost/Sessie','Kost/Show','Kost/Won']];
+  costFunnelExportData=[['Periode','Ad kost (Google)','Kost/Lead','Kost/Contacted','Kost/Sessie','Kost/Show','Kost/Won']];
   const cp=(cost,v)=>cost>0&&v>0?(Math.round(cost/v*100)/100).toFixed(2):'—';
   Object.keys(tree).sort().reverse().forEach(y=>{
     const yid='cf'+(rid++);const yg=aggLeads(tree[y].rows);
-    const yCost=getGoogleAdsSpend(new Date(+y,0,1),new Date(+y,11,31,23,59,59))+(parseFloat(document.getElementById('ac-meta').value)||0)+(parseFloat(document.getElementById('ac-tiktok').value)||0);
+    const yCost=getGoogleAdsSpend(new Date(+y,0,1),new Date(+y,11,31,23,59,59));
     costFunnelExportData.push([y,yCost.toFixed(2),cp(yCost,yg.t),cp(yCost,yg.c),cp(yCost,yg.s),cp(yCost,yg.sh),cp(yCost,yg.w)]);
     html+=`<tr class="dr dr-y" onclick="toggleDrill('${yid}')"><td><span class="arr" id="a-${yid}">▶</span>${y}</td>${renderCostFunnelCells(yg,yCost)}</tr>`;
     Object.keys(tree[y].q).sort((a,b)=>+b-+a).forEach(q=>{
       const qid='cf'+(rid++);const qlbl='Q'+(+q+1)+' '+y;const qg=aggLeads(tree[y].q[q].rows);
       const qFrom=new Date(+y,+q*3,1,0,0,0);const qTo=new Date(+y,+q*3+3,0,23,59,59);
-      const qCost=getTotalAdCost(qFrom,qTo);
+      const qCost=getGoogleAdsSpend(qFrom,qTo);
       costFunnelExportData.push([qlbl,qCost.toFixed(2),cp(qCost,qg.t),cp(qCost,qg.c),cp(qCost,qg.s),cp(qCost,qg.sh),cp(qCost,qg.w)]);
       html+=`<tr class="dr dr-q dc" id="c-${yid}" onclick="toggleDrill('${qid}')"><td><span class="arr" id="a-${qid}">▶</span>${qlbl}</td>${renderCostFunnelCells(qg,qCost)}</tr>`;
       Object.keys(tree[y].q[q].m).sort((a,b)=>+b-+a).forEach(mo=>{
         const mlbl=MN[+mo]+' '+y;const mg=aggLeads(tree[y].q[q].m[mo].rows);
         const mFrom=new Date(+y,+mo,1,0,0,0);const mTo=new Date(+y,+mo+1,0,23,59,59);
-        const mCost=getTotalAdCost(mFrom,mTo);
+        const mCost=getGoogleAdsSpend(mFrom,mTo);
         costFunnelExportData.push([mlbl,mCost.toFixed(2),cp(mCost,mg.t),cp(mCost,mg.c),cp(mCost,mg.s),cp(mCost,mg.sh),cp(mCost,mg.w)]);
         html+=`<tr class="dr-m dc" id="c-${qid}"><td>— ${mlbl}</td>${renderCostFunnelCells(mg,mCost)}</tr>`;
       });
     });
   });
-  const totG=aggLeads(data);const totCost=getTotalAdCost(from,to);
+  const totG=aggLeads(data);const totCost=getGoogleAdsSpend(from,to);
   html+=`<tr class="tbl-total"><td>Totaal</td>${renderCostFunnelCells(totG,totCost)}</tr>`;
   document.getElementById('cost-funnel-tbl').innerHTML=thd+'<tbody>'+html+'</tbody>';
 }
