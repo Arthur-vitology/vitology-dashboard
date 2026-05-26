@@ -201,6 +201,13 @@ tbody tr:hover td{background:#fafaf8!important}
       </div>
       <div class="sec">
         <div class="sec-hdr">
+          <div><div class="sec-title">Kost per funnel-stap</div><div style="font-size:10px;color:var(--muted);margin-top:2px">Advertentiekosten per stap in de lead funnel · klik om uit te klappen</div></div>
+          <button class="export-btn" onclick="exportCostFunnelCSV()">↓ Export CSV</button>
+        </div>
+        <div class="tbl-wrap"><table id="cost-funnel-tbl"></table></div>
+      </div>
+      <div class="sec">
+        <div class="sec-hdr">
           <div><div class="sec-title">Advertentiekanalen</div><div style="font-size:10px;color:var(--muted);margin-top:2px">Meta & Google: automatisch · TikTok: manueel</div></div>
           <button class="export-btn" onclick="refreshAds()">↻ Vernieuwen</button>
         </div>
@@ -610,6 +617,53 @@ function renderDrillTable(data,from,to){
   if(curYear&&prevYear)html+=deltaRow('Δ% vs vorig jaar',aggLeads(tree[curYear].rows),aggLeads(tree[prevYear].rows));
   document.getElementById('ptbl').innerHTML=thd+'<tbody>'+html+'</tbody>';
 }
+let costFunnelExportData=[];
+function renderCostFunnelCells(g,cost){
+  const c=v=>cost>0&&v>0?fmtEur(Math.round(cost/v*100)/100):'€ —';
+  return'<td style="font-family:\'DM Mono\',monospace;font-weight:500">'+fmtEur(Math.round(cost*100)/100)+'</td><td style="font-family:\'DM Mono\',monospace">'+c(g.t)+'</td><td style="font-family:\'DM Mono\',monospace">'+c(g.c)+'</td><td style="font-family:\'DM Mono\',monospace">'+c(g.s)+'</td><td style="font-family:\'DM Mono\',monospace">'+c(g.sh)+'</td><td style="font-family:\'DM Mono\',monospace;color:var(--red);font-weight:500">'+c(g.w)+'</td>';
+}
+function renderCostFunnelTable(data,from,to){
+  const MN=['Jan','Feb','Mrt','Apr','Mei','Jun','Jul','Aug','Sep','Okt','Nov','Dec'];
+  const tree={};
+  data.forEach(r=>{
+    const d=r.datum,y=d.getFullYear(),mo=d.getMonth(),q=Math.floor(mo/3);
+    if(!tree[y])tree[y]={rows:[],q:{}};tree[y].rows.push(r);
+    if(!tree[y].q[q])tree[y].q[q]={rows:[],m:{}};tree[y].q[q].rows.push(r);
+    if(!tree[y].q[q].m[mo])tree[y].q[q].m[mo]={rows:[]};tree[y].q[q].m[mo].rows.push(r);
+  });
+  const thd='<thead><tr><th>Periode</th><th>Totale kost</th><th>Kost/Lead</th><th>Kost/Contacted</th><th>Kost/Sessie</th><th>Kost/Show</th><th>Kost/Won</th></tr></thead>';
+  let html='',rid=0;
+  costFunnelExportData=[['Periode','Totale kost','Kost/Lead','Kost/Contacted','Kost/Sessie','Kost/Show','Kost/Won']];
+  const cp=(cost,v)=>cost>0&&v>0?(Math.round(cost/v*100)/100).toFixed(2):'—';
+  Object.keys(tree).sort().reverse().forEach(y=>{
+    const yid='cf'+(rid++);const yg=aggLeads(tree[y].rows);
+    const yCost=getGoogleAdsSpend(new Date(+y,0,1),new Date(+y,11,31,23,59,59))+(parseFloat(document.getElementById('ac-meta').value)||0)+(parseFloat(document.getElementById('ac-tiktok').value)||0);
+    costFunnelExportData.push([y,yCost.toFixed(2),cp(yCost,yg.t),cp(yCost,yg.c),cp(yCost,yg.s),cp(yCost,yg.sh),cp(yCost,yg.w)]);
+    html+=`<tr class="dr dr-y" onclick="toggleDrill('${yid}')"><td><span class="arr" id="a-${yid}">▶</span>${y}</td>${renderCostFunnelCells(yg,yCost)}</tr>`;
+    Object.keys(tree[y].q).sort((a,b)=>+b-+a).forEach(q=>{
+      const qid='cf'+(rid++);const qlbl='Q'+(+q+1)+' '+y;const qg=aggLeads(tree[y].q[q].rows);
+      const qFrom=new Date(+y,+q*3,1,0,0,0);const qTo=new Date(+y,+q*3+3,0,23,59,59);
+      const qCost=getTotalAdCost(qFrom,qTo);
+      costFunnelExportData.push([qlbl,qCost.toFixed(2),cp(qCost,qg.t),cp(qCost,qg.c),cp(qCost,qg.s),cp(qCost,qg.sh),cp(qCost,qg.w)]);
+      html+=`<tr class="dr dr-q dc" id="c-${yid}" onclick="toggleDrill('${qid}')"><td><span class="arr" id="a-${qid}">▶</span>${qlbl}</td>${renderCostFunnelCells(qg,qCost)}</tr>`;
+      Object.keys(tree[y].q[q].m).sort((a,b)=>+b-+a).forEach(mo=>{
+        const mlbl=MN[+mo]+' '+y;const mg=aggLeads(tree[y].q[q].m[mo].rows);
+        const mFrom=new Date(+y,+mo,1,0,0,0);const mTo=new Date(+y,+mo+1,0,23,59,59);
+        const mCost=getTotalAdCost(mFrom,mTo);
+        costFunnelExportData.push([mlbl,mCost.toFixed(2),cp(mCost,mg.t),cp(mCost,mg.c),cp(mCost,mg.s),cp(mCost,mg.sh),cp(mCost,mg.w)]);
+        html+=`<tr class="dr-m dc" id="c-${qid}"><td>— ${mlbl}</td>${renderCostFunnelCells(mg,mCost)}</tr>`;
+      });
+    });
+  });
+  const totG=aggLeads(data);const totCost=getTotalAdCost(from,to);
+  html+=`<tr class="tbl-total"><td>Totaal</td>${renderCostFunnelCells(totG,totCost)}</tr>`;
+  document.getElementById('cost-funnel-tbl').innerHTML=thd+'<tbody>'+html+'</tbody>';
+}
+function exportCostFunnelCSV(){
+  const rows=costFunnelExportData.map(r=>r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(','));
+  const blob=new Blob([rows.join('\n')],{type:'text/csv;charset=utf-8;'});
+  const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='vitology_kost_per_stap.csv';a.click();URL.revokeObjectURL(url);
+}
 function toggleDrill(id){
   const arr=document.getElementById('a-'+id);const isOpen=arr&&arr.classList.contains('open');
   if(arr)arr.classList.toggle('open',!isOpen);
@@ -681,6 +735,7 @@ function update(){
   else{ban.className='cmp-banner';}
   renderKPIs(m,mp,comparing,from,to);renderCharts(data);renderDrillTable(data,from,to);
   renderGroupTable(data,'locatie','tloc');renderGroupTable(data,'bron','tbron');
+  renderCostFunnelTable(data,from,to);
 }
 async function loadLeads(){
   try{
