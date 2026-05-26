@@ -279,7 +279,8 @@ const LEADS_CSV='https://docs.google.com/spreadsheets/d/e/2PACX-1vQ6ul9nS3hs_bL9
 const SALES_CSV='https://docs.google.com/spreadsheets/d/e/2PACX-1vS22Q6zpnQSBp9bXg-daDE-KTlhs1gU0ekwB8-UaUSnwhyyd2YQ2IB75OjBl9xwiA/pub?output=csv';
 const VITOLOGISTS_CSV='https://docs.google.com/spreadsheets/d/e/2PACX-1vQ6ul9nS3hs_bL9YVDy05O_kVdGoWsMHcqxME6DPqbarHPW_f4TqYAND05HvgsyEmPePTnTy8rRgXWv/pub?output=csv&gid=0';
 const GOOGLE_ADS_CSV='https://docs.google.com/spreadsheets/d/e/2PACX-1vTqXBJwIOEmZbrP59FWByhfA-O73BVtiunzmlCGKM2gTqr3vDezk9OIEDBKwhhZM68MbBDhTXpzebun/pub?output=csv';
-const META_TIKTOK_ADS_CSV='';
+const META_ADS_CSV='';
+const TIKTOK_ADS_CSV='';
 
 let GOOGLE_ADS_DATA=[];
 let META_ADS_DATA=[];
@@ -399,22 +400,19 @@ function calcAdStats(arr,from,to){
 function getMetaStats(from,to){return calcAdStats(META_ADS_DATA,from,to);}
 function getTikTokStats(from,to){return calcAdStats(TIKTOK_ADS_DATA,from,to);}
 
-async function loadMetaTikTokAdsData(){
-  if(!META_TIKTOK_ADS_CSV)return;
+async function loadAdSheetData(csvUrl,targetArray){
+  if(!csvUrl)return;
   try{
-    const res=await fetch(META_TIKTOK_ADS_CSV);
+    const res=await fetch(csvUrl);
     if(!res.ok)return;
     const txt=await res.text();
     const rows=parseCSV(txt);
     rows.forEach(r=>{
       const get=k=>{const f=Object.keys(r).find(x=>x.trim().toLowerCase()===k.toLowerCase());return f?(r[f]||'').trim():'';};
       const entry={datum:pd(get('Datum')),spend:parseFloat(get('Spend'))||0,impressions:parseInt(get('Impressies'))||0,clicks:parseInt(get('Kliks'))||0};
-      if(!entry.datum)return;
-      const platform=get('Platform').toLowerCase();
-      if(platform==='meta')META_ADS_DATA.push(entry);
-      else if(platform==='tiktok')TIKTOK_ADS_DATA.push(entry);
+      if(entry.datum)targetArray.push(entry);
     });
-  }catch(e){console.error('Meta/TikTok Ads data error:',e);}
+  }catch(e){console.error('Ad sheet load error:',e);}
 }
 
 function mergeApiDaily(targetArray,dailyRows){
@@ -801,7 +799,7 @@ function update(){
 }
 async function loadLeads(){
   try{
-    await Promise.all([loadGoogleAdsData(),loadMetaTikTokAdsData()]);
+    await Promise.all([loadGoogleAdsData(),loadAdSheetData(META_ADS_CSV,META_ADS_DATA),loadAdSheetData(TIKTOK_ADS_CSV,TIKTOK_ADS_DATA)]);
     const res=await fetch(LEADS_CSV);if(!res.ok)throw new Error('HTTP '+res.status);
     const txt=await res.text();
     LEADS_DATA=parseCSV(txt).map(mapLeadRow).filter(r=>r.datum);

@@ -1,17 +1,34 @@
 /**
  * Google Apps Script — Dagelijkse synchronisatie van Meta & TikTok advertentiekosten
  *
+ * Elke platform heeft zijn eigen Google Sheet (zoals Google Ads).
+ * Kolommen per sheet: Datum | Spend | Impressies | Kliks
+ *
  * SETUP:
- * 1. Maak een Google Sheet met kolommen: Datum | Platform | Spend | Impressies | Kliks
- * 2. Open Extensions → Apps Script en plak deze code
- * 3. Pas VERCEL_BASE_URL aan naar je Vercel deployment URL
- * 4. Voer setupDailyTrigger() één keer handmatig uit om de dagelijkse trigger aan te maken
- * 5. Publiceer de sheet als CSV (Bestand → Delen → Publiceren naar het web → CSV)
- * 6. Kopieer de CSV-URL naar META_TIKTOK_ADS_CSV in index.html
+ * 1. Maak 2 Google Sheets: eentje voor Meta, eentje voor TikTok
+ *    Kolommen in elk: Datum | Spend | Impressies | Kliks
+ * 2. Open Extensions > Apps Script in EEN van de sheets en plak deze code
+ *    (het script schrijft naar beide sheets via hun ID)
+ * 3. Vul VERCEL_BASE_URL, META_SHEET_ID en TIKTOK_SHEET_ID hieronder in
+ * 4. Voer setupDailyTrigger() eenmaal uit via het Ad Sync menu
+ * 5. Publiceer beide sheets als CSV (Bestand > Delen > Publiceren naar het web)
+ * 6. Kopieer de CSV-URLs naar META_ADS_CSV en TIKTOK_ADS_CSV in index.html
  */
 
 var VERCEL_BASE_URL = 'https://vitology-dashboard.vercel.app';
-var SHEET_NAME = 'Blad1';
+var META_SHEET_ID = '';
+var TIKTOK_SHEET_ID = '';
+
+var PLATFORMS = [
+  { name: 'Meta', endpoint: '/api/meta', sheetId: function () { return META_SHEET_ID; } },
+  { name: 'TikTok', endpoint: '/api/tiktok', sheetId: function () { return TIKTOK_SHEET_ID; } },
+];
+
+function getSheet(sheetId) {
+  if (!sheetId) return null;
+  var ss = SpreadsheetApp.openById(sheetId);
+  return ss.getSheets()[0];
+}
 
 function syncYesterday() {
   var yesterday = new Date();
@@ -21,17 +38,12 @@ function syncYesterday() {
 }
 
 function syncDate(dateStr) {
-  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAME);
-  if (!sheet) {
-    sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
-  }
-
-  var platforms = [
-    { name: 'Meta', endpoint: '/api/meta' },
-    { name: 'TikTok', endpoint: '/api/tiktok' },
-  ];
-
-  platforms.forEach(function (p) {
+  PLATFORMS.forEach(function (p) {
+    var sheet = getSheet(p.sheetId());
+    if (!sheet) {
+      Logger.log('Geen sheet ID voor ' + p.name + ', overgeslagen.');
+      return;
+    }
     try {
       var url = VERCEL_BASE_URL + p.endpoint + '?from=' + dateStr + '&to=' + dateStr;
       var response = UrlFetchApp.fetch(url, { muteHttpExceptions: true });
@@ -45,25 +57,25 @@ function syncDate(dateStr) {
       }
 
       daily.forEach(function (row) {
-        removeExistingRow(sheet, row.date, p.name);
-        sheet.appendRow([row.date, p.name, row.spend || 0, row.impressions || 0, row.clicks || 0]);
+        removeExistingRow(sheet, row.date);
+        sheet.appendRow([row.date, row.spend || 0, row.impressions || 0, row.clicks || 0]);
       });
+
+      sortSheet(sheet);
     } catch (e) {
       Logger.log('Error syncing ' + p.name + ' for ' + dateStr + ': ' + e.message);
     }
   });
-
-  sortSheet(sheet);
 }
 
-function removeExistingRow(sheet, date, platform) {
+function removeExistingRow(sheet, date) {
   var data = sheet.getDataRange().getValues();
   for (var i = data.length - 1; i >= 1; i--) {
     var rowDate = data[i][0];
     if (rowDate instanceof Date) {
       rowDate = Utilities.formatDate(rowDate, 'Europe/Brussels', 'yyyy-MM-dd');
     }
-    if (String(rowDate) === String(date) && String(data[i][1]) === platform) {
+    if (String(rowDate) === String(date)) {
       sheet.deleteRow(i + 1);
     }
   }
@@ -72,7 +84,7 @@ function removeExistingRow(sheet, date, platform) {
 function sortSheet(sheet) {
   var lastRow = sheet.getLastRow();
   if (lastRow <= 1) return;
-  sheet.getRange(2, 1, lastRow - 1, 5).sort([{ column: 1, ascending: false }, { column: 2, ascending: true }]);
+  sheet.getRange(2, 1, lastRow - 1, 4).sort({ column: 1, ascending: false });
 }
 
 function backfillRange() {
