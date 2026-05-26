@@ -723,6 +723,11 @@ async function fetchAds(){
   document.getElementById('ads-tbl').innerHTML='<thead><tr><th>Platform</th><th>Spend</th><th>Impressies</th><th>Kliks</th><th>CTR</th><th>CPC</th></tr></thead><tbody>'+dr+tr+'</tbody>';
   document.getElementById('ads-loading').style.display='none';
   document.getElementById('ads-tbl-wrap').style.display='block';
+  const{from:rf,to:rt,pf:rpf,pt:rpt}=getLeadsRange();
+  const rdata=filtLeads(rf,rt);const rprev=comparing?filtLeads(rpf,rpt):null;
+  const rm=calcLeads(rdata),rmp=rprev?calcLeads(rprev):null;
+  renderKPIs(rm,rmp,comparing,rf,rt);
+  renderCostFunnelTable(currentLeadsData,rf,rt);
 }
 function refreshAds(){fetchAds();}
 function update(){
