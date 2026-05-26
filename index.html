@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Vitology Dashboard</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script> 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 :root{
@@ -15,7 +15,7 @@
 }
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--txt);font-size:13px;line-height:1.5}
-header{background:var(--surf);border-bottom:1px solid var(--bdr);padding:14px 28px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100} 
+header{background:var(--surf);border-bottom:1px solid var(--bdr);padding:14px 28px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
 .logo{font-size:16px;font-weight:600;letter-spacing:-.02em}.logo span{color:var(--acc)}
 .lu{font-size:11px;color:var(--muted);font-family:'DM Mono',monospace}
 .tabs{display:flex;gap:2px;background:var(--bg);padding:2px;border-radius:8px;border:1px solid var(--bdr)}
@@ -36,7 +36,8 @@ header{background:var(--surf);border-bottom:1px solid var(--bdr);padding:14px 28
 .cmp-btn.on{border-color:var(--acc2);background:#fef3ec;color:var(--acc2)}
 .cost-wrap{margin-left:auto;display:flex;flex-direction:column;gap:3px}
 .cost-wrap label{font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
-.cost-wrap input{width:110px;font-family:'DM Mono',monospace;font-size:12px}
+.ac-label{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.ac-input{width:80px;font-family:'DM Mono',monospace;font-size:12px;padding:5px 8px;border:1px solid var(--bdr);border-radius:6px;background:var(--bg)}
 .kpi-row{display:grid;gap:8px;margin-bottom:8px}
 .kpi-row.top{grid-template-columns:repeat(5,1fr)}
 .kpi-row.bot{grid-template-columns:repeat(4,1fr)}
@@ -123,7 +124,6 @@ tbody tr:hover td{background:#fafaf8!important}
   </div>
 </header>
 <div class="wrap">
-  <!-- LEADS TAB -->
   <div id="tab-leads" class="tab-content active">
     <div id="leads-loading" class="state-msg"><div class="spinner"></div>Data ophalen...</div>
     <div id="leads-dash" style="display:none">
@@ -154,7 +154,24 @@ tbody tr:hover td{background:#fafaf8!important}
         <button class="cmp-btn on" id="cmpBtn">↕ Vergelijking aan</button>
         <div class="cost-wrap">
           <label>Advertentiekosten €</label>
-          <input type="number" id="ac" value="0" min="0" placeholder="0">
+          <div style="display:flex;gap:6px;align-items:flex-end;margin-top:2px">
+            <div style="display:flex;flex-direction:column;gap:2px">
+              <span class="ac-label">Meta (auto)</span>
+              <input type="number" id="ac-meta" value="0" min="0" placeholder="0" class="ac-input" readonly style="background:var(--gbg)">
+            </div>
+            <div style="display:flex;flex-direction:column;gap:2px">
+              <span class="ac-label">Google (auto)</span>
+              <input type="number" id="ac-google" value="0" min="0" placeholder="0" class="ac-input" readonly style="background:var(--gbg)">
+            </div>
+            <div style="display:flex;flex-direction:column;gap:2px">
+              <span class="ac-label">TikTok</span>
+              <input type="number" id="ac-tiktok" value="0" min="0" placeholder="0" class="ac-input">
+            </div>
+            <div style="display:flex;flex-direction:column;gap:2px">
+              <span class="ac-label">Totaal</span>
+              <input type="number" id="ac" value="0" readonly class="ac-input" style="background:var(--gbg);color:var(--green);font-weight:600">
+            </div>
+          </div>
         </div>
       </div>
       <div class="cmp-banner" id="cb"></div>
@@ -184,7 +201,7 @@ tbody tr:hover td{background:#fafaf8!important}
       </div>
       <div class="sec">
         <div class="sec-hdr">
-          <div><div class="sec-title">Advertentiekanalen</div><div style="font-size:10px;color:var(--muted);margin-top:2px">Live data via Meta &amp; Google Ads API</div></div>
+          <div><div class="sec-title">Advertentiekanalen</div><div style="font-size:10px;color:var(--muted);margin-top:2px">Meta & Google: automatisch · TikTok: manueel</div></div>
           <button class="export-btn" onclick="refreshAds()">↻ Vernieuwen</button>
         </div>
         <div id="ads-loading" style="text-align:center;padding:20px;color:var(--muted);font-size:12px">Advertentiedata laden...</div>
@@ -193,7 +210,6 @@ tbody tr:hover td{background:#fafaf8!important}
     </div>
     <div id="leads-err" class="state-msg" style="display:none">Kon leads data niet laden.</div>
   </div>
-  <!-- SALES TAB -->
   <div id="tab-sales" class="tab-content">
     <div id="sales-loading" class="state-msg"><div class="spinner"></div>Data ophalen...</div>
     <div id="sales-dash" style="display:none">
@@ -255,7 +271,9 @@ tbody tr:hover td{background:#fafaf8!important}
 const LEADS_CSV='https://docs.google.com/spreadsheets/d/e/2PACX-1vQ6ul9nS3hs_bL9YVDy05O_kVdGoWsMHcqxME6DPqbarHPW_f4TqYAND05HvgsyEmPePTnTy8rRgXWv/pub?output=csv';
 const SALES_CSV='https://docs.google.com/spreadsheets/d/e/2PACX-1vS22Q6zpnQSBp9bXg-daDE-KTlhs1gU0ekwB8-UaUSnwhyyd2YQ2IB75OjBl9xwiA/pub?output=csv';
 const VITOLOGISTS_CSV='https://docs.google.com/spreadsheets/d/e/2PACX-1vQ6ul9nS3hs_bL9YVDy05O_kVdGoWsMHcqxME6DPqbarHPW_f4TqYAND05HvgsyEmPePTnTy8rRgXWv/pub?output=csv&gid=0';
+const GOOGLE_ADS_CSV='https://docs.google.com/spreadsheets/d/e/2PACX-1vTqXBJwIOEmZbrP59FWByhfA-O73BVtiunzmlCGKM2gTqr3vDezk9OIEDBKwhhZM68MbBDhTXpzebun/pub?output=csv';
 
+let GOOGLE_ADS_DATA=[];
 let activeTab='leads';
 let ACTIVE_VITOLOGISTS=0;
 let VITOLOGISTS_DATA=[];
@@ -313,21 +331,65 @@ function cpp(cost,n){return n>0&&cost>0?'€ '+Math.round(cost/n):'€ —';}
 function fmtEur(v){return'€ '+v.toLocaleString('nl-BE',{minimumFractionDigits:2,maximumFractionDigits:2});}
 function fmtEurK(v){return v>=1000?'€'+Math.round(v/1000)+'k':'€'+Math.round(v);}
 
+function getGoogleAdsSpend(from,to){
+  return GOOGLE_ADS_DATA.filter(r=>{
+    if(!r.datum)return false;
+    const ts=dayTs(r.datum);
+    if(from&&ts<dayTs(from))return false;
+    if(to&&ts>dayTs(to))return false;
+    return true;
+  }).reduce((s,r)=>s+r.spend,0);
+}
+
+function getGoogleAdsStats(from,to){
+  const rows=GOOGLE_ADS_DATA.filter(r=>{
+    if(!r.datum)return false;
+    const ts=dayTs(r.datum);
+    if(from&&ts<dayTs(from))return false;
+    if(to&&ts>dayTs(to))return false;
+    return true;
+  });
+  const spend=rows.reduce((s,r)=>s+r.spend,0);
+  const impressions=rows.reduce((s,r)=>s+r.impressions,0);
+  const clicks=rows.reduce((s,r)=>s+r.clicks,0);
+  return{spend:Math.round(spend*100)/100,impressions,clicks,ctr:impressions>0?Math.round(clicks/impressions*10000)/100:0,cpc:clicks>0?Math.round(spend/clicks*100)/100:0};
+}
+
+async function loadGoogleAdsData(){
+  try{
+    const res=await fetch(GOOGLE_ADS_CSV);
+    if(!res.ok)return;
+    const txt=await res.text();
+    const rows=parseCSV(txt);
+    GOOGLE_ADS_DATA=rows.map(r=>{
+      const get=k=>{const f=Object.keys(r).find(x=>x.trim().toLowerCase()===k.toLowerCase());return f?(r[f]||'').trim():'';};
+      return{datum:pd(get('Datum')),spend:parseFloat(get('Spend'))||0,impressions:parseInt(get('Impressies'))||0,clicks:parseInt(get('Kliks'))||0};
+    }).filter(r=>r.datum);
+  }catch(e){console.error('Google Ads data error:',e);}
+}
+
+function getTotalAdCost(from,to){
+  const meta=parseFloat(document.getElementById('ac-meta').value)||0;
+  const google=getGoogleAdsSpend(from,to);
+  const tiktok=parseFloat(document.getElementById('ac-tiktok').value)||0;
+  return meta+google+tiktok;
+}
+
+function updateAdCosts(from,to){
+  const google=getGoogleAdsSpend(from,to);
+  document.getElementById('ac-google').value=Math.round(google*100)/100;
+  const total=getTotalAdCost(from,to);
+  document.getElementById('ac').value=Math.round(total);
+}
+
 function mapLeadRow(r){
   const get=k=>{const f=Object.keys(r).find(x=>x.trim().toLowerCase()===k.toLowerCase());return f?(r[f]||'').trim():'';};
   return{locatie:get('Vitology locatie'),bron:get('Bron'),datum:pd(get('Registratiedatum')),contacted:get('Contacted?'),proefsessie:pd(get('Datum proefsessie')),noshow:get('No show?'),factuurdatum:pd(get('eerste factuurdatum'))};
 }
-
 function mapVitologistRow(r){
   const get=k=>{const f=Object.keys(r).find(x=>x.trim().toLowerCase()===k.toLowerCase());return f?(r[f]||'').trim():'';};
-  return{
-    vestiging:get('Vestiging'),
-    actief:get('Vitologist?').toUpperCase()==='JA',
-    startdatum:pd(get('Datum Vitologist geworden')),
-    stopdatum:pd(get('Datum stopzetting')),
-  };
+  return{vestiging:get('Vestiging'),actief:get('Vitologist?').toUpperCase()==='JA',startdatum:pd(get('Datum Vitologist geworden')),stopdatum:pd(get('Datum stopzetting'))};
 }
-
 function getActiveMembersAtEndOfMonth(year,month,loc){
   const endOfMonth=new Date(year,month+1,0,23,59,59);
   const now=new Date();
@@ -341,7 +403,6 @@ function getActiveMembersAtEndOfMonth(year,month,loc){
     return true;
   }).length;
 }
-
 function getCancellationsInMonth(year,month,loc){
   const startOfMonth=new Date(year,month,1,0,0,0);
   const endOfMonth=new Date(year,month+1,0,23,59,59);
@@ -351,7 +412,6 @@ function getCancellationsInMonth(year,month,loc){
     return v.stopdatum>=startOfMonth&&v.stopdatum<=endOfMonth;
   }).length;
 }
-
 function getLeadsRange(){
   const p=document.getElementById('sp').value,now=new Date(),dow=(now.getDay()+6)%7;
   let from=null,to=null,pf=null,pt=null;
@@ -378,12 +438,12 @@ function calcLeads(d){
     o=d.filter(r=>r.contacted==='F-Up').length,l=d.filter(r=>r.contacted==='Lost').length;
   return{t,c,s,sh,ns,w,o,l,wr:t>0?Math.round(w/t*100):0};
 }
-function renderKPIs(m,mp,cmp){
-  const cost=parseFloat(document.getElementById('ac').value)||0;
+function renderKPIs(m,mp,cmp,from,to){
+  const cost=getTotalAdCost(from,to);
   const d=k=>(cmp&&mp)?dlt(m[k],mp[k]):null;
   const kc=(lbl,val,cls,sub,cmpd)=>'<div class="kpi '+cls+'"><div class="kpi-lbl">'+lbl+'</div><div class="kpi-val">'+val+'</div>'+(sub?'<div class="kpi-sub">'+sub+'</div>':'')+(cmpd?'<div class="kpi-cmp '+cmpd.cls+'">'+cmpd.txt+'</div>':'')+'</div>';
   document.getElementById('kpis1').innerHTML=
-    kc('Totale kost',cost>0?'€ '+cost.toLocaleString('nl-BE'):'€ —','c-red','',null)+
+    kc('Totale kost',cost>0?'€ '+Math.round(cost).toLocaleString('nl-BE'):'€ —','c-red','',null)+
     kc('Leads',m.t,'',null,d('t'))+
     kc('Kost per lead',cpp(cost,m.t),'c-blue','',null)+
     kc('Won (klanten)',m.w,'c-green c-greenbdr','Win rate '+m.wr+'%',d('w'))+
@@ -425,7 +485,6 @@ function deltaRow(label,cur,prv){
   const cells=keys.map(k=>{const dp=dltPct(cur[k],prv[k]);return'<td class="'+(dp.cls==='up'?'delta-up':dp.cls==='dn'?'delta-dn':'')+'">'+dp.txt+'</td>';});
   return'<tr class="tbl-delta"><td>'+label+'</td><td></td>'+cells.join('')+'<td></td><td></td></tr>';
 }
-
 function getSalesForMonth(y,mo,loc){
   const locMap={'Antwerpen':'Vitology Antwerpen','Schilde':'Vitology Schilde'};
   const start=new Date(y,mo,1,0,0,0);
@@ -441,7 +500,6 @@ function getSalesForMonth(y,mo,loc){
   const overig=rows.filter(r=>['Seminars','Andere'].includes(r.category)).reduce((s,r)=>s+r.amtExcl,0);
   return{memberships,upsells,overig};
 }
-
 function renderLocTable(data){
   const MN=['Jan','Feb','Mrt','Apr','Mei','Jun','Jul','Aug','Sep','Okt','Nov','Dec'];
   const locs=['Antwerpen','Schilde'];
@@ -500,10 +558,9 @@ function renderLocTable(data){
   tbody+='</tbody>';
   document.getElementById('ptbl').innerHTML=thead+tbody;
 }
-
-function renderDrillTable(data){
+function renderDrillTable(data,from,to){
   if(curMode==='loc'){renderLocTable(data);return;}
-  const cost=parseFloat(document.getElementById('ac').value)||0;
+  const cost=getTotalAdCost(from,to);
   const isAbs=curMode==='abs';
   const MN=['Jan','Feb','Mrt','Apr','Mei','Jun','Jul','Aug','Sep','Okt','Nov','Dec'];
   const tree={};
@@ -525,6 +582,7 @@ function renderDrillTable(data){
   const curYear=allYears[allYears.length-1];const prevYear=allYears[allYears.length-2];
   Object.keys(tree).sort().reverse().forEach(y=>{
     const yid='y'+(rid++);const yg=aggLeads(tree[y].rows);
+    const yCost=getGoogleAdsSpend(new Date(+y,0,1),new Date(+y,11,31,23,59,59))+(parseFloat(document.getElementById('ac-meta').value)||0);
     csvExportData.push([y,yg.t,yg.c,yg.s,yg.sh,yg.w,yg.o,yg.l,pct(yg.w,yg.t)+'%',cpp(cost,yg.t)]);
     html+=`<tr class="dr dr-y" onclick="toggleDrill('${yid}')"><td><span class="arr" id="a-${yid}">▶</span>${y}</td>${renderLeadCells(yg,cost,isAbs)}</tr>`;
     Object.keys(tree[y].q).sort((a,b)=>+b-+a).forEach(q=>{
@@ -532,7 +590,9 @@ function renderDrillTable(data){
       html+=`<tr class="dr dr-q dc" id="c-${yid}" onclick="toggleDrill('${qid}')"><td><span class="arr" id="a-${qid}">▶</span>${qlbl}</td>${renderLeadCells(qg,cost,isAbs)}</tr>`;
       Object.keys(tree[y].q[q].m).sort((a,b)=>+b-+a).forEach(mo=>{
         const mid='m'+(rid++);const mlbl=MN[+mo]+' '+y;const mg=aggLeads(tree[y].q[q].m[mo].rows);
-        html+=`<tr class="dr dr-m dc" id="c-${qid}" onclick="toggleDrill('${mid}')"><td><span class="arr" id="a-${mid}">▶</span>— ${mlbl}</td>${renderLeadCells(mg,cost,isAbs)}</tr>`;
+        const mFrom=new Date(+y,+mo,1,0,0,0);const mTo=new Date(+y,+mo+1,0,23,59,59);
+        const mCost=getTotalAdCost(mFrom,mTo);
+        html+=`<tr class="dr dr-m dc" id="c-${qid}" onclick="toggleDrill('${mid}')"><td><span class="arr" id="a-${mid}">▶</span>— ${mlbl}</td>${renderLeadCells(mg,mCost,isAbs)}</tr>`;
         Object.keys(tree[y].q[q].m[mo].w).sort().reverse().forEach(wk=>{
           const wid='w'+(rid++);const wg=aggLeads(tree[y].q[q].m[mo].w[wk].rows);
           html+=`<tr class="dr dr-w dc" id="c-${mid}" onclick="toggleDrill('${wid}')"><td><span class="arr" id="a-${wid}">▶</span>— ${wk}</td>${renderLeadCells(wg,cost,isAbs)}</tr>`;
@@ -546,11 +606,10 @@ function renderDrillTable(data){
   });
   const totG=aggLeads(data);
   html+=`<tr class="tbl-total"><td>Totaal</td>${renderLeadCells(totG,cost,isAbs)}</tr>`;
-  if(comparing){const{from,to,pf,pt}=getLeadsRange();const prevData=filtLeads(pf,pt);if(prevData.length>0)html+=deltaRow('Δ% vs vorige periode',totG,aggLeads(prevData));}
+  if(comparing){const{from:f,to:t,pf,pt}=getLeadsRange();const prevData=filtLeads(pf,pt);if(prevData.length>0)html+=deltaRow('Δ% vs vorige periode',totG,aggLeads(prevData));}
   if(curYear&&prevYear)html+=deltaRow('Δ% vs vorig jaar',aggLeads(tree[curYear].rows),aggLeads(tree[prevYear].rows));
   document.getElementById('ptbl').innerHTML=thd+'<tbody>'+html+'</tbody>';
 }
-
 function toggleDrill(id){
   const arr=document.getElementById('a-'+id);const isOpen=arr&&arr.classList.contains('open');
   if(arr)arr.classList.toggle('open',!isOpen);
@@ -564,7 +623,8 @@ function setMode(m){
   document.getElementById('mAbs').classList.toggle('active',m==='abs');
   document.getElementById('mPct').classList.toggle('active',m==='pct');
   document.getElementById('mLoc').classList.toggle('active',m==='loc');
-  renderDrillTable(currentLeadsData);
+  const{from,to}=getLeadsRange();
+  renderDrillTable(currentLeadsData,from,to);
 }
 function exportCSV(){
   const rows=csvExportData.map(r=>r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(','));
@@ -583,34 +643,48 @@ async function fetchAds(){
   const qs=(fmtDate(from)&&fmtDate(to))?'?from='+fmtDate(from)+'&to='+fmtDate(to):'';
   document.getElementById('ads-loading').style.display='block';
   document.getElementById('ads-tbl-wrap').style.display='none';
-  const results=await Promise.allSettled(['meta','google','tiktok'].map(p=>fetch('/api/'+p+qs).then(r=>r.json())));
-  const rows=results.map((r,i)=>{if(r.status==='rejected'||r.value.error)return{platform:['Meta','Google Ads','TikTok'][i],spend:0,impressions:0,clicks:0,ctr:0,cpc:0,error:true};return r.value;});
-  renderAdsTable(rows);
-  document.getElementById('ads-loading').style.display='none';
-  document.getElementById('ads-tbl-wrap').style.display='block';
-}
-function renderAdsTable(rows){
-  const ts=rows.reduce((s,r)=>s+r.spend,0),ti=rows.reduce((s,r)=>s+r.impressions,0),tc=rows.reduce((s,r)=>s+r.clicks,0);
-  document.getElementById('ac').value=Math.round(ts);update();
+  const metaResult=await fetch('/api/meta'+qs).then(r=>r.json()).catch(()=>({error:true}));
+  const metaSpend=metaResult.error?0:metaResult.spend||0;
+  document.getElementById('ac-meta').value=Math.round(metaSpend*100)/100;
+  updateAdCosts(from,to);
+  const googleStats=getGoogleAdsStats(from,to);
+  const tiktokSpend=parseFloat(document.getElementById('ac-tiktok').value)||0;
   const fe=v=>v>0?'€ '+v.toLocaleString('nl-BE',{minimumFractionDigits:2,maximumFractionDigits:2}):'€ —';
-  const fn=v=>v>0?v.toLocaleString('nl-BE'):'—';const fp=v=>v>0?v.toFixed(2)+'%':'—';
-  const dr=rows.map(r=>r.error?'<tr><td style="font-weight:500">'+r.platform+'</td><td colspan="5" style="color:var(--muted);font-size:11px">Niet geconfigureerd</td></tr>':'<tr><td style="font-weight:500">'+r.platform+'</td><td style="font-family:\'DM Mono\',monospace">'+fe(r.spend)+'</td><td style="font-family:\'DM Mono\',monospace">'+fn(r.impressions)+'</td><td style="font-family:\'DM Mono\',monospace">'+fn(r.clicks)+'</td><td style="font-family:\'DM Mono\',monospace">'+fp(r.ctr)+'</td><td style="font-family:\'DM Mono\',monospace">'+fe(r.cpc)+'</td></tr>').join('');
+  const fn=v=>v>0?v.toLocaleString('nl-BE'):'—';
+  const fp=v=>v>0?v.toFixed(2)+'%':'—';
+  const displayRows=[
+    {platform:'Meta',spend:metaSpend,impressions:metaResult.impressions||0,clicks:metaResult.clicks||0,ctr:metaResult.ctr||0,cpc:metaResult.cpc||0,error:!!metaResult.error},
+    {platform:'Google Ads',spend:googleStats.spend,impressions:googleStats.impressions,clicks:googleStats.clicks,ctr:googleStats.ctr,cpc:googleStats.cpc,auto:true},
+    {platform:'TikTok',spend:tiktokSpend,impressions:0,clicks:0,ctr:0,cpc:0,manual:true},
+  ];
+  const ts=displayRows.reduce((s,r)=>s+r.spend,0);
+  const ti=displayRows.reduce((s,r)=>s+r.impressions,0);
+  const tc=displayRows.reduce((s,r)=>s+r.clicks,0);
+  const dr=displayRows.map(r=>{
+    if(r.error)return'<tr><td style="font-weight:500">'+r.platform+'</td><td colspan="5" style="color:var(--muted);font-size:11px">Niet geconfigureerd</td></tr>';
+    if(r.manual)return'<tr><td style="font-weight:500">'+r.platform+'</td><td style="font-family:\'DM Mono\',monospace">'+fe(r.spend)+'</td><td colspan="3" style="color:var(--muted);font-size:11px">Manueel ingevoerd</td><td></td></tr>';
+    return'<tr><td style="font-weight:500">'+r.platform+'</td><td style="font-family:\'DM Mono\',monospace">'+fe(r.spend)+'</td><td style="font-family:\'DM Mono\',monospace">'+fn(r.impressions)+'</td><td style="font-family:\'DM Mono\',monospace">'+fn(r.clicks)+'</td><td style="font-family:\'DM Mono\',monospace">'+fp(r.ctr)+'</td><td style="font-family:\'DM Mono\',monospace">'+fe(r.cpc)+'</td></tr>';
+  }).join('');
   const tr='<tr class="tbl-total"><td>Totaal</td><td style="font-family:\'DM Mono\',monospace">'+fe(ts)+'</td><td style="font-family:\'DM Mono\',monospace">'+fn(ti)+'</td><td style="font-family:\'DM Mono\',monospace">'+fn(tc)+'</td><td style="font-family:\'DM Mono\',monospace">'+fp(ti>0?tc/ti*100:0)+'</td><td style="font-family:\'DM Mono\',monospace">'+fe(tc>0?ts/tc:0)+'</td></tr>';
   document.getElementById('ads-tbl').innerHTML='<thead><tr><th>Platform</th><th>Spend</th><th>Impressies</th><th>Kliks</th><th>CTR</th><th>CPC</th></tr></thead><tbody>'+dr+tr+'</tbody>';
+  document.getElementById('ads-loading').style.display='none';
+  document.getElementById('ads-tbl-wrap').style.display='block';
 }
 function refreshAds(){fetchAds();}
 function update(){
   const{from,to,pf,pt}=getLeadsRange();
   const data=filtLeads(from,to);const prev=comparing?filtLeads(pf,pt):null;
   const m=calcLeads(data),mp=prev?calcLeads(prev):null;currentLeadsData=data;
+  updateAdCosts(from,to);
   const ban=document.getElementById('cb');
   if(comparing&&pf&&pt){ban.className='cmp-banner on';ban.textContent='Vergelijking: '+(fmtD(from)||'begin')+' - '+(fmtD(to)||'nu')+' vs '+fmtD(pf)+' - '+fmtD(pt);}
   else{ban.className='cmp-banner';}
-  renderKPIs(m,mp,comparing);renderCharts(data);renderDrillTable(data);
+  renderKPIs(m,mp,comparing,from,to);renderCharts(data);renderDrillTable(data,from,to);
   renderGroupTable(data,'locatie','tloc');renderGroupTable(data,'bron','tbron');
 }
 async function loadLeads(){
   try{
+    await loadGoogleAdsData();
     const res=await fetch(LEADS_CSV);if(!res.ok)throw new Error('HTTP '+res.status);
     const txt=await res.text();
     LEADS_DATA=parseCSV(txt).map(mapLeadRow).filter(r=>r.datum);
@@ -627,7 +701,7 @@ async function loadLeads(){
 document.getElementById('sp').addEventListener('change',function(){document.getElementById('cd').className=this.value==='custom'?'cdates on':'cdates';update();fetchAds();});
 document.getElementById('sl').addEventListener('change',update);
 document.getElementById('sb').addEventListener('change',update);
-document.getElementById('ac').addEventListener('input',update);
+document.getElementById('ac-tiktok').addEventListener('input',function(){const{from,to}=getLeadsRange();updateAdCosts(from,to);update();});
 document.getElementById('df').addEventListener('change',function(){update();fetchAds();});
 document.getElementById('dt').addEventListener('change',function(){update();fetchAds();});
 document.getElementById('cmpBtn').addEventListener('click',function(){comparing=!comparing;this.classList.toggle('on',comparing);this.textContent=comparing?'↕ Vergelijking aan':'↕ Vergelijk met vorige periode';update();});
@@ -637,7 +711,6 @@ let SALES_DATA=[],SC_OMZET=null,SC_CAT=null,salesComparing=true,currentSalesData
 const CATS=['Vitologist','VitoQ','Losse sessies','Credit packs','Seminars',"Producten / programma's",'Andere'];
 const CAT_COLORS={'Vitologist':'#2d5be3','VitoQ':'#1a6b4a','Losse sessies':'#e87d2d','Credit packs':'#7a4a00','Seminars':'#8c1a1a',"Producten / programma's":'#6b3fa0','Andere':'#a0a09a'};
 const LOC_COLORS={'Vitology Antwerpen':'#2d5be3','Vitology Schilde':'#1a6b4a'};
-
 function parseAmt(v){if(v===null||v===undefined||v==='')return 0;return parseFloat(String(v).replace(',','.').replace(/[^0-9.\-]/g,''))||0;}
 function categorizeSub(sub,origin){
   if(origin&&origin.toLowerCase()==='punchcard')return'Credit packs';
@@ -735,13 +808,7 @@ function renderSalesCharts(data){
   const MN=['Jan','Feb','Mrt','Apr','Mei','Jun','Jul','Aug','Sep','Okt','Nov','Dec'];
   const mlbls=months.map(m=>{const[y,mo]=m.split('-');return MN[+mo-1]+' '+y;});
   if(SC_OMZET){SC_OMZET.destroy();SC_OMZET=null;}if(SC_CAT){SC_CAT.destroy();SC_CAT=null;}
-  const locDatasets=locs.map(loc=>({
-    label:loc.replace('Vitology ',''),
-    data:months.map(m=>Math.round((byMonthLoc[m]&&byMonthLoc[m][loc])||0)),
-    backgroundColor:LOC_COLORS[loc]||'#a0a09a',
-    borderColor:LOC_COLORS[loc]||'#a0a09a',
-    borderWidth:1,borderRadius:3,
-  }));
+  const locDatasets=locs.map(loc=>({label:loc.replace('Vitology ',''),data:months.map(m=>Math.round((byMonthLoc[m]&&byMonthLoc[m][loc])||0)),backgroundColor:LOC_COLORS[loc]||'#a0a09a',borderColor:LOC_COLORS[loc]||'#a0a09a',borderWidth:1,borderRadius:3}));
   SC_OMZET=new Chart(document.getElementById('sc-omzet'),{type:'bar',data:{labels:mlbls,datasets:locDatasets},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:true,position:'top',labels:{font:{size:10,family:'DM Mono'},boxWidth:10}}},scales:{x:{ticks:{font:{size:10,family:'DM Mono'},maxRotation:45},grid:{display:false}},y:{ticks:{font:{size:10,family:'DM Mono'},callback:v=>'€'+Math.round(v/1000)+'k'},grid:{color:'#f0eeea'}}}}});
   const catVals=CATS.map(c=>Math.round(data.filter(r=>r.category===c).reduce((s,r)=>s+r.amtExcl,0)));
   const catCols=CATS.map(c=>CAT_COLORS[c]);
@@ -833,7 +900,6 @@ document.getElementById('sst').addEventListener('change',updateSales);
 document.getElementById('sdf').addEventListener('change',updateSales);
 document.getElementById('sdt').addEventListener('change',updateSales);
 document.getElementById('sCmpBtn').addEventListener('click',function(){salesComparing=!salesComparing;this.classList.toggle('on',salesComparing);this.textContent=salesComparing?'↕ Vergelijking aan':'↕ Vergelijk met vorige periode';updateSales();});
-
 loadLeads();
 loadVitologists();
 </script>
