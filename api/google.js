@@ -5,8 +5,9 @@ module.exports = async function handler(req, res) {
   const clientId = process.env.GOOGLE_CLIENT_ID;
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
   const refreshToken = process.env.GOOGLE_REFRESH_TOKEN;
-  const customerId = process.env.GOOGLE_CUSTOMER_ID;
-  if (!devToken || !clientId || !clientSecret || !refreshToken || !customerId) {
+  const customerId = '1507648056';
+  const mccId = '7887429254';
+  if (!devToken || !clientId || !clientSecret || !refreshToken) {
     return res.status(500).json({ error: 'Google Ads credentials not configured' });
   }
   const { from, to } = req.query;
@@ -37,6 +38,7 @@ module.exports = async function handler(req, res) {
         headers: {
           'Authorization': `Bearer ${tokenData.access_token}`,
           'developer-token': devToken,
+          'login-customer-id': mccId,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ query }),
