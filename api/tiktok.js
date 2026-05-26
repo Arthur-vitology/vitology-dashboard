@@ -4,7 +4,7 @@ module.exports = async function handler(req, res) {
   const advertiserId = process.env.TIKTOK_ADVERTISER_ID;
   if (!accessToken || !advertiserId) {
     return res.status(200).json({
-      platform: 'TikTok', spend: 0, impressions: 0, clicks: 0, ctr: 0, cpc: 0, status: 'not_configured'
+      platform: 'TikTok', daily: [], spend: 0, impressions: 0, clicks: 0, ctr: 0, cpc: 0, status: 'not_configured'
     });
   }
   const { from, to } = req.query;
@@ -24,14 +24,17 @@ module.exports = async function handler(req, res) {
     });
     const data = await resp.json();
     if (data.code !== 0) return res.status(400).json({ error: data.message });
+    const daily = (data.data?.list || []).map(row => ({
+      date: row.dimensions.stat_time_day,
+      spend: Math.round(parseFloat(row.metrics?.spend || 0) * 100) / 100,
+      impressions: parseInt(row.metrics?.impressions || 0),
+      clicks: parseInt(row.metrics?.clicks || 0),
+    })).sort((a, b) => a.date.localeCompare(b.date));
     let spend = 0, impressions = 0, clicks = 0;
-    (data.data?.list || []).forEach(row => {
-      spend += parseFloat(row.metrics?.spend || 0);
-      impressions += parseInt(row.metrics?.impressions || 0);
-      clicks += parseInt(row.metrics?.clicks || 0);
-    });
+    daily.forEach(d => { spend += d.spend; impressions += d.impressions; clicks += d.clicks; });
     return res.status(200).json({
       platform: 'TikTok',
+      daily,
       spend: Math.round(spend * 100) / 100,
       impressions, clicks,
       ctr: impressions > 0 ? Math.round(clicks / impressions * 10000) / 100 : 0,
