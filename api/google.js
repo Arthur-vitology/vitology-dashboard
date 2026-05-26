@@ -31,19 +31,25 @@ module.exports = async function handler(req, res) {
       return res.status(400).json({ error: 'Failed to get Google access token', detail: tokenData });
     }
     const query = `SELECT metrics.cost_micros, metrics.impressions, metrics.clicks FROM campaign WHERE segments.date BETWEEN '${dateFrom}' AND '${dateTo}'`;
-    const adsResp = await fetch(
-      `https://googleads.googleapis.com/v18/customers/${customerId}/googleAds:search`,
-      {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${tokenData.access_token}`,
-          'developer-token': devToken,
-          'login-customer-id': mccId,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ query }),
-      }
-    );
+   const adsResp = await fetch(
+  `https://googleads.googleapis.com/v18/customers/${customerId}/googleAds:search`,
+  {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${tokenData.access_token}`,
+      'developer-token': devToken,
+      'login-customer-id': mccId,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ query }),
+  }
+);
+const adsText = await adsResp.text();
+return res.status(200).json({ 
+  status: adsResp.status, 
+  url: `https://googleads.googleapis.com/v18/customers/${customerId}/googleAds:search`,
+  raw: adsText.slice(0, 1000) 
+});
     const adsText = await adsResp.text();
     let adsData;
     try { adsData = JSON.parse(adsText); } catch(e) { return res.status(400).json({ error: 'Ads parse error', raw: adsText.slice(0,500) }); }
