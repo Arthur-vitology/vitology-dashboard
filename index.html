@@ -131,6 +131,7 @@ tbody tr:hover td{background:#fafaf8!important}
         <div class="fg"><label>Periode</label>
           <select id="sp">
             <option value="all" selected>Alle periodes</option>
+            <option value="leadstart">Sinds start lead meting</option>
             <option value="week">Deze week</option>
             <option value="prevweek">Vorige week</option>
             <option value="month">Deze maand</option>
@@ -506,6 +507,7 @@ function getLeadsRange(){
   else if(p==='month'){from=new Date(now.getFullYear(),now.getMonth(),1,0,0,0);to=new Date(now.getFullYear(),now.getMonth(),now.getDate(),23,59,59);pf=new Date(now.getFullYear(),now.getMonth()-1,1,0,0,0);pt=new Date(now.getFullYear(),now.getMonth(),0,23,59,59);}
   else if(p==='prev'){from=new Date(now.getFullYear(),now.getMonth()-1,1,0,0,0);to=new Date(now.getFullYear(),now.getMonth(),0,23,59,59);pf=new Date(now.getFullYear(),now.getMonth()-2,1,0,0,0);pt=new Date(now.getFullYear(),now.getMonth()-1,0,23,59,59);}
   else if(p==='custom'){const fv=document.getElementById('df').value,tv=document.getElementById('dt').value;if(fv){const[y,mo,d]=fv.split('-');from=new Date(+y,+mo-1,+d,0,0,0);}if(tv){const[y,mo,d]=tv.split('-');to=new Date(+y,+mo-1,+d,23,59,59);}if(from&&to){const span=to-from;pt=new Date(from.getTime()-1);pf=new Date(pt.getTime()-span);pf.setHours(0,0,0);}}
+  else if(p==='leadstart'){from=new Date(2026,2,19,0,0,0);to=new Date(now.getFullYear(),now.getMonth(),now.getDate(),23,59,59);}
   return{from,to,pf,pt};
 }
 function filtLeads(from,to){
@@ -704,7 +706,7 @@ function renderDrillTable(data,from,to){
   const totG=aggLeads(data);
   const totOp=getCancellationsInRange(from,to,locFilter);const totAc=getActiveAtDate(to,locFilter);
   html+=`<tr class="tbl-total"><td>Totaal</td>${renderLeadCells(totG,cost,isAbs,{opzeg:totOp,actief:totAc})}</tr>`;
-  if(comparing){const{from:f,to:t,pf,pt}=getLeadsRange();const prevData=filtLeads(pf,pt);if(prevData.length>0)html+=deltaRow('Δ% vs vorige periode',totG,aggLeads(prevData));}
+  if(comparing){const{from:f,to:t,pf,pt}=getLeadsRange();if(pf&&pt){const prevData=filtLeads(pf,pt);if(prevData.length>0)html+=deltaRow('Δ% vs vorige periode',totG,aggLeads(prevData));}}
   if(curYear&&prevYear)html+=deltaRow('Δ% vs vorig jaar',aggLeads(tree[curYear].rows),aggLeads(tree[prevYear].rows));
   document.getElementById('ptbl').innerHTML=thd+'<tbody>'+html+'</tbody>';
 }
