@@ -471,6 +471,33 @@ function getCancellationsInMonth(year,month,loc){
     return v.stopdatum>=startOfMonth&&v.stopdatum<=endOfMonth;
   }).length;
 }
+function getCancellationsInRange(from,to,loc){
+  return VITOLOGISTS_DATA.filter(v=>{
+    if(loc&&v.vestiging!==loc)return false;
+    if(!v.stopdatum)return false;
+    if(from&&v.stopdatum<from)return false;
+    if(to&&v.stopdatum>to)return false;
+    return true;
+  }).length;
+}
+function getActiveAtDate(endDate,loc){
+  const now=new Date();
+  if(!endDate||endDate>=now){
+    return VITOLOGISTS_DATA.filter(v=>(!loc||v.vestiging===loc)&&v.actief).length;
+  }
+  return VITOLOGISTS_DATA.filter(v=>{
+    if(loc&&v.vestiging!==loc)return false;
+    if(!v.startdatum)return false;
+    if(v.startdatum>endDate)return false;
+    if(v.stopdatum&&v.stopdatum<=endDate)return false;
+    return true;
+  }).length;
+}
+function intersectRange(rangeFrom,rangeTo,filterFrom,filterTo){
+  const f=filterFrom&&rangeFrom<filterFrom?filterFrom:rangeFrom;
+  const t=filterTo&&rangeTo>filterTo?filterTo:rangeTo;
+  return[f,t];
+}
 function getLeadsRange(){
   const p=document.getElementById('sp').value,now=new Date(),dow=(now.getDay()+6)%7;
   let from=null,to=null,pf=null,pt=null;
@@ -535,14 +562,17 @@ function aggLeads(rows){
   return g;
 }
 let csvExportData=[];
-function renderLeadCells(g,cost,isAbs){
-  if(isAbs)return'<td>'+g.t+'</td><td>'+g.c+'</td><td>'+g.s+'</td><td>'+g.sh+'</td><td><span class="badge b-won">'+g.w+'</span></td><td><span class="badge b-open">'+g.o+'</span></td><td><span class="badge b-lost">'+g.l+'</span></td><td style="font-family:\'DM Mono\',monospace;font-weight:500">'+pct(g.w,g.t)+'%</td><td style="font-family:\'DM Mono\',monospace;color:var(--muted)">'+cpp(cost,g.t)+'</td>';
-  return'<td>'+g.t+'</td><td style="font-family:\'DM Mono\',monospace">'+pct(g.c,g.t)+'%</td><td style="font-family:\'DM Mono\',monospace">'+pct(g.s,g.t)+'%</td><td style="font-family:\'DM Mono\',monospace">'+pct(g.sh,g.t)+'%</td><td style="font-family:\'DM Mono\',monospace;color:var(--green);font-weight:500">'+pct(g.w,g.t)+'%</td><td style="font-family:\'DM Mono\',monospace">'+pct(g.o,g.t)+'%</td><td style="font-family:\'DM Mono\',monospace;color:var(--red)">'+pct(g.l,g.t)+'%</td><td style="font-family:\'DM Mono\',monospace;font-weight:500">'+pct(g.w,g.t)+'%</td><td style="font-family:\'DM Mono\',monospace;color:var(--muted)">'+cpp(cost,g.t)+'</td>';
+function renderLeadCells(g,cost,isAbs,extras){
+  extras=extras||{};
+  const op=extras.opzeg!=null?extras.opzeg:'';
+  const ac=extras.actief!=null?extras.actief:'';
+  if(isAbs)return'<td>'+g.t+'</td><td>'+g.c+'</td><td>'+g.s+'</td><td>'+g.sh+'</td><td><span class="badge b-won">'+g.w+'</span></td><td><span class="badge b-open">'+g.o+'</span></td><td><span class="badge b-lost">'+g.l+'</span></td><td style="font-family:\'DM Mono\',monospace;font-weight:500">'+pct(g.w,g.t)+'%</td><td style="font-family:\'DM Mono\',monospace">'+op+'</td><td style="font-family:\'DM Mono\',monospace">'+ac+'</td>';
+  return'<td>'+g.t+'</td><td style="font-family:\'DM Mono\',monospace">'+pct(g.c,g.t)+'%</td><td style="font-family:\'DM Mono\',monospace">'+pct(g.s,g.t)+'%</td><td style="font-family:\'DM Mono\',monospace">'+pct(g.sh,g.t)+'%</td><td style="font-family:\'DM Mono\',monospace;color:var(--green);font-weight:500">'+pct(g.w,g.t)+'%</td><td style="font-family:\'DM Mono\',monospace">'+pct(g.o,g.t)+'%</td><td style="font-family:\'DM Mono\',monospace;color:var(--red)">'+pct(g.l,g.t)+'%</td><td style="font-family:\'DM Mono\',monospace;font-weight:500">'+pct(g.w,g.t)+'%</td><td style="font-family:\'DM Mono\',monospace">'+op+'</td><td style="font-family:\'DM Mono\',monospace">'+ac+'</td>';
 }
 function deltaRow(label,cur,prv){
   const keys=['t','c','s','sh','w','o','l'];
   const cells=keys.map(k=>{const dp=dltPct(cur[k],prv[k]);return'<td class="'+(dp.cls==='up'?'delta-up':dp.cls==='dn'?'delta-dn':'')+'">'+dp.txt+'</td>';});
-  return'<tr class="tbl-delta"><td>'+label+'</td><td></td>'+cells.join('')+'<td></td><td></td></tr>';
+  return'<tr class="tbl-delta"><td>'+label+'</td>'+cells.join('')+'<td></td><td></td><td></td></tr>';
 }
 function getSalesForMonth(y,mo,loc){
   const locMap={'Antwerpen':'Vitology Antwerpen','Schilde':'Vitology Schilde'};
@@ -634,24 +664,32 @@ function renderDrillTable(data,from,to){
     if(!tree[y].q[q].m[mo].w[wkey].d[dkey])tree[y].q[q].m[mo].w[wkey].d[dkey]={rows:[]};
     tree[y].q[q].m[mo].w[wkey].d[dkey].rows.push(r);
   });
-  const thd='<thead><tr><th>Periode</th><th>Leads</th><th>Contacted</th><th>Sessie</th><th>Show</th><th>Won</th><th>Open</th><th>Lost</th><th>Win rate</th><th>Kost/lead</th></tr></thead>';
+  const thd='<thead><tr><th>Periode</th><th>Leads</th><th>Contacted</th><th>Sessie</th><th>Show</th><th>Won</th><th>Open</th><th>Lost</th><th>Win rate</th><th>Opzeg</th><th>Actief</th></tr></thead>';
   let html='',rid=0;
-  csvExportData=[['Periode','Leads','Contacted','Sessie','Show','Won','Open','Lost','Win rate','Kost/lead']];
+  csvExportData=[['Periode','Leads','Contacted','Sessie','Show','Won','Open','Lost','Win rate','Opzeg','Actief']];
+  const locSel=document.getElementById('sl').value;
+  const locFilter=locSel==='all'?null:locSel;
   const allYears=Object.keys(tree).sort();
   const curYear=allYears[allYears.length-1];const prevYear=allYears[allYears.length-2];
   Object.keys(tree).sort().reverse().forEach(y=>{
     const yid='y'+(rid++);const yg=aggLeads(tree[y].rows);
-    const yCost=getTotalAdCost(new Date(+y,0,1),new Date(+y,11,31,23,59,59));
-    csvExportData.push([y,yg.t,yg.c,yg.s,yg.sh,yg.w,yg.o,yg.l,pct(yg.w,yg.t)+'%',cpp(cost,yg.t)]);
-    html+=`<tr class="dr dr-y" onclick="toggleDrill('${yid}')"><td><span class="arr" id="a-${yid}">▶</span>${y}</td>${renderLeadCells(yg,cost,isAbs)}</tr>`;
+    const[yF,yT]=intersectRange(new Date(+y,0,1,0,0,0),new Date(+y,11,31,23,59,59),from,to);
+    const yCost=getTotalAdCost(yF,yT);
+    const yOp=getCancellationsInRange(yF,yT,locFilter);const yAc=getActiveAtDate(yT,locFilter);
+    csvExportData.push([y,yg.t,yg.c,yg.s,yg.sh,yg.w,yg.o,yg.l,pct(yg.w,yg.t)+'%',yOp,yAc]);
+    html+=`<tr class="dr dr-y" onclick="toggleDrill('${yid}')"><td><span class="arr" id="a-${yid}">▶</span>${y}</td>${renderLeadCells(yg,yCost,isAbs,{opzeg:yOp,actief:yAc})}</tr>`;
     Object.keys(tree[y].q).sort((a,b)=>+b-+a).forEach(q=>{
       const qid='q'+(rid++);const qlbl='Q'+(+q+1)+' '+y;const qg=aggLeads(tree[y].q[q].rows);
-      html+=`<tr class="dr dr-q dc" id="c-${yid}" onclick="toggleDrill('${qid}')"><td><span class="arr" id="a-${qid}">▶</span>${qlbl}</td>${renderLeadCells(qg,cost,isAbs)}</tr>`;
+      const[qF,qT]=intersectRange(new Date(+y,+q*3,1,0,0,0),new Date(+y,+q*3+3,0,23,59,59),from,to);
+      const qCost=getTotalAdCost(qF,qT);
+      const qOp=getCancellationsInRange(qF,qT,locFilter);const qAc=getActiveAtDate(qT,locFilter);
+      html+=`<tr class="dr dr-q dc" id="c-${yid}" onclick="toggleDrill('${qid}')"><td><span class="arr" id="a-${qid}">▶</span>${qlbl}</td>${renderLeadCells(qg,qCost,isAbs,{opzeg:qOp,actief:qAc})}</tr>`;
       Object.keys(tree[y].q[q].m).sort((a,b)=>+b-+a).forEach(mo=>{
         const mid='m'+(rid++);const mlbl=MN[+mo]+' '+y;const mg=aggLeads(tree[y].q[q].m[mo].rows);
-        const mFrom=new Date(+y,+mo,1,0,0,0);const mTo=new Date(+y,+mo+1,0,23,59,59);
-        const mCost=getTotalAdCost(mFrom,mTo);
-        html+=`<tr class="dr dr-m dc" id="c-${qid}" onclick="toggleDrill('${mid}')"><td><span class="arr" id="a-${mid}">▶</span>— ${mlbl}</td>${renderLeadCells(mg,mCost,isAbs)}</tr>`;
+        const[mF,mT]=intersectRange(new Date(+y,+mo,1,0,0,0),new Date(+y,+mo+1,0,23,59,59),from,to);
+        const mCost=getTotalAdCost(mF,mT);
+        const mOp=getCancellationsInRange(mF,mT,locFilter);const mAc=getActiveAtDate(mT,locFilter);
+        html+=`<tr class="dr dr-m dc" id="c-${qid}" onclick="toggleDrill('${mid}')"><td><span class="arr" id="a-${mid}">▶</span>— ${mlbl}</td>${renderLeadCells(mg,mCost,isAbs,{opzeg:mOp,actief:mAc})}</tr>`;
         Object.keys(tree[y].q[q].m[mo].w).sort().reverse().forEach(wk=>{
           const wid='w'+(rid++);const wg=aggLeads(tree[y].q[q].m[mo].w[wk].rows);
           html+=`<tr class="dr dr-w dc" id="c-${mid}" onclick="toggleDrill('${wid}')"><td><span class="arr" id="a-${wid}">▶</span>— ${wk}</td>${renderLeadCells(wg,cost,isAbs)}</tr>`;
@@ -664,7 +702,8 @@ function renderDrillTable(data,from,to){
     });
   });
   const totG=aggLeads(data);
-  html+=`<tr class="tbl-total"><td>Totaal</td>${renderLeadCells(totG,cost,isAbs)}</tr>`;
+  const totOp=getCancellationsInRange(from,to,locFilter);const totAc=getActiveAtDate(to,locFilter);
+  html+=`<tr class="tbl-total"><td>Totaal</td>${renderLeadCells(totG,cost,isAbs,{opzeg:totOp,actief:totAc})}</tr>`;
   if(comparing){const{from:f,to:t,pf,pt}=getLeadsRange();const prevData=filtLeads(pf,pt);if(prevData.length>0)html+=deltaRow('Δ% vs vorige periode',totG,aggLeads(prevData));}
   if(curYear&&prevYear)html+=deltaRow('Δ% vs vorig jaar',aggLeads(tree[curYear].rows),aggLeads(tree[prevYear].rows));
   document.getElementById('ptbl').innerHTML=thd+'<tbody>'+html+'</tbody>';
@@ -689,19 +728,20 @@ function renderCostFunnelTable(data,from,to){
   const cp=(cost,v)=>cost>0&&v>0?(Math.round(cost/v*100)/100).toFixed(2):'—';
   Object.keys(tree).sort().reverse().forEach(y=>{
     const yid='cf'+(rid++);const yg=aggLeads(tree[y].rows);
-    const yCost=getTotalAdCost(new Date(+y,0,1),new Date(+y,11,31,23,59,59));
+    const[yF,yT]=intersectRange(new Date(+y,0,1,0,0,0),new Date(+y,11,31,23,59,59),from,to);
+    const yCost=getTotalAdCost(yF,yT);
     costFunnelExportData.push([y,yCost.toFixed(2),cp(yCost,yg.t),cp(yCost,yg.c),cp(yCost,yg.s),cp(yCost,yg.sh),cp(yCost,yg.w)]);
     html+=`<tr class="dr dr-y" onclick="toggleDrill('${yid}')"><td><span class="arr" id="a-${yid}">▶</span>${y}</td>${renderCostFunnelCells(yg,yCost)}</tr>`;
     Object.keys(tree[y].q).sort((a,b)=>+b-+a).forEach(q=>{
       const qid='cf'+(rid++);const qlbl='Q'+(+q+1)+' '+y;const qg=aggLeads(tree[y].q[q].rows);
-      const qFrom=new Date(+y,+q*3,1,0,0,0);const qTo=new Date(+y,+q*3+3,0,23,59,59);
-      const qCost=getTotalAdCost(qFrom,qTo);
+      const[qF,qT]=intersectRange(new Date(+y,+q*3,1,0,0,0),new Date(+y,+q*3+3,0,23,59,59),from,to);
+      const qCost=getTotalAdCost(qF,qT);
       costFunnelExportData.push([qlbl,qCost.toFixed(2),cp(qCost,qg.t),cp(qCost,qg.c),cp(qCost,qg.s),cp(qCost,qg.sh),cp(qCost,qg.w)]);
       html+=`<tr class="dr dr-q dc" id="c-${yid}" onclick="toggleDrill('${qid}')"><td><span class="arr" id="a-${qid}">▶</span>${qlbl}</td>${renderCostFunnelCells(qg,qCost)}</tr>`;
       Object.keys(tree[y].q[q].m).sort((a,b)=>+b-+a).forEach(mo=>{
         const mlbl=MN[+mo]+' '+y;const mg=aggLeads(tree[y].q[q].m[mo].rows);
-        const mFrom=new Date(+y,+mo,1,0,0,0);const mTo=new Date(+y,+mo+1,0,23,59,59);
-        const mCost=getTotalAdCost(mFrom,mTo);
+        const[mF,mT]=intersectRange(new Date(+y,+mo,1,0,0,0),new Date(+y,+mo+1,0,23,59,59),from,to);
+        const mCost=getTotalAdCost(mF,mT);
         costFunnelExportData.push([mlbl,mCost.toFixed(2),cp(mCost,mg.t),cp(mCost,mg.c),cp(mCost,mg.s),cp(mCost,mg.sh),cp(mCost,mg.w)]);
         html+=`<tr class="dr-m dc" id="c-${qid}"><td>— ${mlbl}</td>${renderCostFunnelCells(mg,mCost)}</tr>`;
       });
