@@ -30,10 +30,11 @@ function fetchMetaData() {
     var filtering = encodeURIComponent(JSON.stringify([
       { field: 'campaign.effective_status', operator: 'IN', value: ['ACTIVE', 'PAUSED'] }
     ]));
+    var timeRange = encodeURIComponent(JSON.stringify({ since: fromStr, until: toStr }));
 
     var url = 'https://graph.facebook.com/v19.0/act_' + AD_ACCOUNT_ID + '/insights' +
       '?fields=spend,impressions,clicks' +
-      '&time_range={"since":"' + fromStr + '","until":"' + toStr + '"}' +
+      '&time_range=' + timeRange +
       '&time_increment=1' +
       '&filtering=' + filtering +
       '&limit=500' +
