@@ -132,10 +132,14 @@ tbody tr:hover td{background:#fafaf8!important}
           <select id="sp">
             <option value="all" selected>Alle periodes</option>
             <option value="leadstart">Sinds start lead meting</option>
+            <option value="today">Vandaag</option>
+            <option value="yesterday">Gisteren</option>
             <option value="week">Deze week</option>
             <option value="prevweek">Vorige week</option>
             <option value="month">Deze maand</option>
             <option value="prev">Vorige maand</option>
+            <option value="quarter">Dit kwartaal</option>
+            <option value="prevquarter">Vorig kwartaal</option>
             <option value="custom">Aangepaste datum</option>
           </select>
         </div>
@@ -225,10 +229,14 @@ tbody tr:hover td{background:#fafaf8!important}
         <div class="fg"><label>Periode</label>
           <select id="ssp">
             <option value="all" selected>Alle periodes</option>
+            <option value="today">Vandaag</option>
+            <option value="yesterday">Gisteren</option>
             <option value="week">Deze week</option>
             <option value="prevweek">Vorige week</option>
             <option value="month">Deze maand</option>
             <option value="prev">Vorige maand</option>
+            <option value="quarter">Dit kwartaal</option>
+            <option value="prevquarter">Vorig kwartaal</option>
             <option value="custom">Aangepaste datum</option>
           </select>
         </div>
@@ -502,10 +510,14 @@ function intersectRange(rangeFrom,rangeTo,filterFrom,filterTo){
 function getLeadsRange(){
   const p=document.getElementById('sp').value,now=new Date(),dow=(now.getDay()+6)%7;
   let from=null,to=null,pf=null,pt=null;
-  if(p==='week'){from=new Date(now.getFullYear(),now.getMonth(),now.getDate()-dow,0,0,0);to=new Date(now.getFullYear(),now.getMonth(),now.getDate(),23,59,59);pf=new Date(from);pf.setDate(pf.getDate()-7);pt=new Date(from);pt.setDate(pt.getDate()-1);pt.setHours(23,59,59);}
+  if(p==='today'){from=new Date(now.getFullYear(),now.getMonth(),now.getDate(),0,0,0);to=new Date(now.getFullYear(),now.getMonth(),now.getDate(),23,59,59);pf=new Date(from);pf.setDate(pf.getDate()-1);pt=new Date(to);pt.setDate(pt.getDate()-1);}
+  else if(p==='yesterday'){from=new Date(now.getFullYear(),now.getMonth(),now.getDate()-1,0,0,0);to=new Date(now.getFullYear(),now.getMonth(),now.getDate()-1,23,59,59);pf=new Date(from);pf.setDate(pf.getDate()-1);pt=new Date(to);pt.setDate(pt.getDate()-1);}
+  else if(p==='week'){from=new Date(now.getFullYear(),now.getMonth(),now.getDate()-dow,0,0,0);to=new Date(now.getFullYear(),now.getMonth(),now.getDate(),23,59,59);pf=new Date(from);pf.setDate(pf.getDate()-7);pt=new Date(from);pt.setDate(pt.getDate()-1);pt.setHours(23,59,59);}
   else if(p==='prevweek'){const mon=new Date(now.getFullYear(),now.getMonth(),now.getDate()-dow,0,0,0);from=new Date(mon);from.setDate(from.getDate()-7);to=new Date(mon);to.setDate(to.getDate()-1);to.setHours(23,59,59);pf=new Date(from);pf.setDate(pf.getDate()-7);pt=new Date(from);pt.setDate(pt.getDate()-1);pt.setHours(23,59,59);}
   else if(p==='month'){from=new Date(now.getFullYear(),now.getMonth(),1,0,0,0);to=new Date(now.getFullYear(),now.getMonth(),now.getDate(),23,59,59);pf=new Date(now.getFullYear(),now.getMonth()-1,1,0,0,0);pt=new Date(now.getFullYear(),now.getMonth(),0,23,59,59);}
   else if(p==='prev'){from=new Date(now.getFullYear(),now.getMonth()-1,1,0,0,0);to=new Date(now.getFullYear(),now.getMonth(),0,23,59,59);pf=new Date(now.getFullYear(),now.getMonth()-2,1,0,0,0);pt=new Date(now.getFullYear(),now.getMonth()-1,0,23,59,59);}
+  else if(p==='quarter'){const cq=Math.floor(now.getMonth()/3);from=new Date(now.getFullYear(),cq*3,1,0,0,0);to=new Date(now.getFullYear(),now.getMonth(),now.getDate(),23,59,59);pf=new Date(now.getFullYear(),cq*3-3,1,0,0,0);pt=new Date(now.getFullYear(),cq*3,0,23,59,59);}
+  else if(p==='prevquarter'){const cq=Math.floor(now.getMonth()/3);from=new Date(now.getFullYear(),cq*3-3,1,0,0,0);to=new Date(now.getFullYear(),cq*3,0,23,59,59);pf=new Date(now.getFullYear(),cq*3-6,1,0,0,0);pt=new Date(now.getFullYear(),cq*3-3,0,23,59,59);}
   else if(p==='custom'){const fv=document.getElementById('df').value,tv=document.getElementById('dt').value;if(fv){const[y,mo,d]=fv.split('-');from=new Date(+y,+mo-1,+d,0,0,0);}if(tv){const[y,mo,d]=tv.split('-');to=new Date(+y,+mo-1,+d,23,59,59);}if(from&&to){const span=to-from;pt=new Date(from.getTime()-1);pf=new Date(pt.getTime()-span);pf.setHours(0,0,0);}}
   else if(p==='leadstart'){from=new Date(2026,2,19,0,0,0);to=new Date(now.getFullYear(),now.getMonth(),now.getDate(),23,59,59);}
   return{from,to,pf,pt};
@@ -887,10 +899,14 @@ function mapSalesRow(r){
 function getSalesRange(){
   const p=document.getElementById('ssp').value,now=new Date(),dow=(now.getDay()+6)%7;
   let from=null,to=null,pf=null,pt=null;
-  if(p==='week'){from=new Date(now.getFullYear(),now.getMonth(),now.getDate()-dow,0,0,0);to=new Date(now.getFullYear(),now.getMonth(),now.getDate(),23,59,59);pf=new Date(from);pf.setDate(pf.getDate()-7);pt=new Date(from);pt.setDate(pt.getDate()-1);pt.setHours(23,59,59);}
+  if(p==='today'){from=new Date(now.getFullYear(),now.getMonth(),now.getDate(),0,0,0);to=new Date(now.getFullYear(),now.getMonth(),now.getDate(),23,59,59);pf=new Date(from);pf.setDate(pf.getDate()-1);pt=new Date(to);pt.setDate(pt.getDate()-1);}
+  else if(p==='yesterday'){from=new Date(now.getFullYear(),now.getMonth(),now.getDate()-1,0,0,0);to=new Date(now.getFullYear(),now.getMonth(),now.getDate()-1,23,59,59);pf=new Date(from);pf.setDate(pf.getDate()-1);pt=new Date(to);pt.setDate(pt.getDate()-1);}
+  else if(p==='week'){from=new Date(now.getFullYear(),now.getMonth(),now.getDate()-dow,0,0,0);to=new Date(now.getFullYear(),now.getMonth(),now.getDate(),23,59,59);pf=new Date(from);pf.setDate(pf.getDate()-7);pt=new Date(from);pt.setDate(pt.getDate()-1);pt.setHours(23,59,59);}
   else if(p==='prevweek'){const mon=new Date(now.getFullYear(),now.getMonth(),now.getDate()-dow,0,0,0);from=new Date(mon);from.setDate(from.getDate()-7);to=new Date(mon);to.setDate(to.getDate()-1);to.setHours(23,59,59);pf=new Date(from);pf.setDate(pf.getDate()-7);pt=new Date(from);pt.setDate(pt.getDate()-1);pt.setHours(23,59,59);}
   else if(p==='month'){from=new Date(now.getFullYear(),now.getMonth(),1,0,0,0);to=new Date(now.getFullYear(),now.getMonth(),now.getDate(),23,59,59);pf=new Date(now.getFullYear(),now.getMonth()-1,1,0,0,0);pt=new Date(now.getFullYear(),now.getMonth(),0,23,59,59);}
   else if(p==='prev'){from=new Date(now.getFullYear(),now.getMonth()-1,1,0,0,0);to=new Date(now.getFullYear(),now.getMonth(),0,23,59,59);pf=new Date(now.getFullYear(),now.getMonth()-2,1,0,0,0);pt=new Date(now.getFullYear(),now.getMonth()-1,0,23,59,59);}
+  else if(p==='quarter'){const cq=Math.floor(now.getMonth()/3);from=new Date(now.getFullYear(),cq*3,1,0,0,0);to=new Date(now.getFullYear(),now.getMonth(),now.getDate(),23,59,59);pf=new Date(now.getFullYear(),cq*3-3,1,0,0,0);pt=new Date(now.getFullYear(),cq*3,0,23,59,59);}
+  else if(p==='prevquarter'){const cq=Math.floor(now.getMonth()/3);from=new Date(now.getFullYear(),cq*3-3,1,0,0,0);to=new Date(now.getFullYear(),cq*3,0,23,59,59);pf=new Date(now.getFullYear(),cq*3-6,1,0,0,0);pt=new Date(now.getFullYear(),cq*3-3,0,23,59,59);}
   else if(p==='custom'){const fv=document.getElementById('sdf').value,tv=document.getElementById('sdt').value;if(fv){const[y,mo,d]=fv.split('-');from=new Date(+y,+mo-1,+d,0,0,0);}if(tv){const[y,mo,d]=tv.split('-');to=new Date(+y,+mo-1,+d,23,59,59);}if(from&&to){const span=to-from;pt=new Date(from.getTime()-1);pf=new Date(pt.getTime()-span);pf.setHours(0,0,0);}}
   return{from,to,pf,pt};
 }
