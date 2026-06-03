@@ -157,6 +157,8 @@ tbody tr:hover td{background:#fafaf8!important}
         </div>
         <div class="fsep"></div>
         <button class="cmp-btn on" id="cmpBtn">↕ Vergelijking aan</button>
+        <div class="fg"><label>Vergelijk van</label><input type="date" id="dfc"></div>
+        <div class="fg"><label>Vergelijk tot</label><input type="date" id="dtc"></div>
         <div class="cost-wrap">
           <label>Advertentiekosten €</label>
           <div style="display:flex;gap:6px;align-items:flex-end;margin-top:2px">
@@ -229,6 +231,7 @@ tbody tr:hover td{background:#fafaf8!important}
         <div class="fg"><label>Periode</label>
           <select id="ssp">
             <option value="all" selected>Alle periodes</option>
+            <option value="leadstart">Sinds start lead meting</option>
             <option value="today">Vandaag</option>
             <option value="yesterday">Gisteren</option>
             <option value="week">Deze week</option>
@@ -262,6 +265,8 @@ tbody tr:hover td{background:#fafaf8!important}
         </div>
         <div class="fsep"></div>
         <button class="cmp-btn on" id="sCmpBtn">↕ Vergelijking aan</button>
+        <div class="fg"><label>Vergelijk van</label><input type="date" id="sdfc"></div>
+        <div class="fg"><label>Vergelijk tot</label><input type="date" id="sdtc"></div>
       </div>
       <div class="cmp-banner" id="scb"></div>
       <div class="kpi-row s4" id="skpis1" style="margin-bottom:8px"></div>
@@ -520,6 +525,8 @@ function getLeadsRange(){
   else if(p==='prevquarter'){const cq=Math.floor(now.getMonth()/3);from=new Date(now.getFullYear(),cq*3-3,1,0,0,0);to=new Date(now.getFullYear(),cq*3,0,23,59,59);pf=new Date(now.getFullYear(),cq*3-6,1,0,0,0);pt=new Date(now.getFullYear(),cq*3-3,0,23,59,59);}
   else if(p==='custom'){const fv=document.getElementById('df').value,tv=document.getElementById('dt').value;if(fv){const[y,mo,d]=fv.split('-');from=new Date(+y,+mo-1,+d,0,0,0);}if(tv){const[y,mo,d]=tv.split('-');to=new Date(+y,+mo-1,+d,23,59,59);}if(from&&to){const span=to-from;pt=new Date(from.getTime()-1);pf=new Date(pt.getTime()-span);pf.setHours(0,0,0);}}
   else if(p==='leadstart'){from=new Date(2026,2,19,0,0,0);to=new Date(now.getFullYear(),now.getMonth(),now.getDate(),23,59,59);}
+  const cfv=document.getElementById('dfc').value,ctv=document.getElementById('dtc').value;
+  if(cfv&&ctv){const[y,mo,d]=cfv.split('-');pf=new Date(+y,+mo-1,+d,0,0,0);const[y2,mo2,d2]=ctv.split('-');pt=new Date(+y2,+mo2-1,+d2,23,59,59);}
   return{from,to,pf,pt};
 }
 function filtLeads(from,to){
@@ -872,6 +879,8 @@ document.getElementById('sl').addEventListener('change',update);
 document.getElementById('sb').addEventListener('change',update);
 document.getElementById('df').addEventListener('change',function(){update();fetchAds();});
 document.getElementById('dt').addEventListener('change',function(){update();fetchAds();});
+document.getElementById('dfc').addEventListener('change',update);
+document.getElementById('dtc').addEventListener('change',update);
 document.getElementById('cmpBtn').addEventListener('click',function(){comparing=!comparing;this.classList.toggle('on',comparing);this.textContent=comparing?'↕ Vergelijking aan':'↕ Vergelijk met vorige periode';update();});
 
 // ==================== SALES ====================
@@ -908,6 +917,9 @@ function getSalesRange(){
   else if(p==='quarter'){const cq=Math.floor(now.getMonth()/3);from=new Date(now.getFullYear(),cq*3,1,0,0,0);to=new Date(now.getFullYear(),now.getMonth(),now.getDate(),23,59,59);pf=new Date(now.getFullYear(),cq*3-3,1,0,0,0);pt=new Date(now.getFullYear(),cq*3,0,23,59,59);}
   else if(p==='prevquarter'){const cq=Math.floor(now.getMonth()/3);from=new Date(now.getFullYear(),cq*3-3,1,0,0,0);to=new Date(now.getFullYear(),cq*3,0,23,59,59);pf=new Date(now.getFullYear(),cq*3-6,1,0,0,0);pt=new Date(now.getFullYear(),cq*3-3,0,23,59,59);}
   else if(p==='custom'){const fv=document.getElementById('sdf').value,tv=document.getElementById('sdt').value;if(fv){const[y,mo,d]=fv.split('-');from=new Date(+y,+mo-1,+d,0,0,0);}if(tv){const[y,mo,d]=tv.split('-');to=new Date(+y,+mo-1,+d,23,59,59);}if(from&&to){const span=to-from;pt=new Date(from.getTime()-1);pf=new Date(pt.getTime()-span);pf.setHours(0,0,0);}}
+  else if(p==='leadstart'){from=new Date(2026,2,19,0,0,0);to=new Date(now.getFullYear(),now.getMonth(),now.getDate(),23,59,59);}
+  const cfv=document.getElementById('sdfc').value,ctv=document.getElementById('sdtc').value;
+  if(cfv&&ctv){const[y,mo,d]=cfv.split('-');pf=new Date(+y,+mo-1,+d,0,0,0);const[y2,mo2,d2]=ctv.split('-');pt=new Date(+y2,+mo2-1,+d2,23,59,59);}
   return{from,to,pf,pt};
 }
 function filtSales(from,to){
@@ -925,7 +937,9 @@ function calcSales(data){
   const total=data.reduce((s,r)=>s+r.amtExcl,0);
   const vitoqs=data.filter(r=>r.category==='VitoQ').length;
   const catTotals={};CATS.forEach(c=>catTotals[c]=data.filter(r=>r.category===c).reduce((s,r)=>s+r.amtExcl,0));
-  return{total,totalPaid,totalOpen,vitologists:ACTIVE_VITOLOGISTS,vitoqs,catTotals,count:data.length,paidCount:paid.length,openCount:open.length};
+  const nonZero=data.filter(r=>r.amtExcl!==0);
+  const nonZeroTotal=nonZero.reduce((s,r)=>s+r.amtExcl,0);
+  return{total,totalPaid,totalOpen,vitologists:ACTIVE_VITOLOGISTS,vitoqs,catTotals,count:data.length,paidCount:paid.length,openCount:open.length,nonZeroCount:nonZero.length,nonZeroTotal:nonZeroTotal};
 }
 function renderSalesKPIs(m,mp,cmp){
   const dp=k=>{if(!cmp||!mp||mp[k]===0)return null;const d=Math.round((m[k]-mp[k])/mp[k]*100);const sg=d>=0?'+':'';return{txt:sg+d+'%',cls:m[k]>=mp[k]?'up':'dn'};};
@@ -934,11 +948,11 @@ function renderSalesKPIs(m,mp,cmp){
     ke('Totale omzet',fmtEur(m.total),'c-green c-greenbdr',null,dp('total'))+
     ke('Betaald',fmtEur(m.totalPaid),'c-green',''+m.paidCount+' facturen',dp('totalPaid'))+
     ke('Openstaand',fmtEur(m.totalOpen),'c-amber c-amberbdr',''+m.openCount+' facturen',dp('totalOpen'))+
-    ke('Gem. per factuur',m.count>0?fmtEur(m.total/m.count):'€ —','c-blue','',null);
+    ke('Gem. per factuur',m.nonZeroCount>0?fmtEur(m.nonZeroTotal/m.nonZeroCount):'€ —','c-blue','Bevat geen 0 euro-facturen',null);
   document.getElementById('skpis2').innerHTML=
     ke('Actieve Vitologists',ACTIVE_VITOLOGISTS,'c-blue c-bluebdr','op basis van Vitologists tab',null)+
     ke('VitoQ sessies',m.vitoqs,'','',dp('vitoqs'))+
-    ke('Facturen totaal',m.count,'','betaald + openstaand',null);
+    ke('Facturen totaal',m.nonZeroCount,'','Bevat geen 0 euro-facturen',null);
 }
 function renderCatTable(data,mp){
   const locs=[...new Set(data.map(r=>r.location).filter(l=>l&&l!=='Vitology Rotterdam'))].sort();
@@ -1071,6 +1085,8 @@ document.getElementById('ssl').addEventListener('change',updateSales);
 document.getElementById('sst').addEventListener('change',updateSales);
 document.getElementById('sdf').addEventListener('change',updateSales);
 document.getElementById('sdt').addEventListener('change',updateSales);
+document.getElementById('sdfc').addEventListener('change',updateSales);
+document.getElementById('sdtc').addEventListener('change',updateSales);
 document.getElementById('sCmpBtn').addEventListener('click',function(){salesComparing=!salesComparing;this.classList.toggle('on',salesComparing);this.textContent=salesComparing?'↕ Vergelijking aan':'↕ Vergelijk met vorige periode';updateSales();});
 loadLeads();
 loadVitologists();
