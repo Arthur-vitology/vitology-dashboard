@@ -276,7 +276,7 @@ tbody tr:hover td{background:#fafaf8!important}
         <div class="tbl-wrap"><table id="scat-tbl"></table></div>
       </div>
       <div class="two-col">
-        <div class="sec"><div class="sec-hdr"><div class="sec-title">Omzet per maand</div></div><div style="position:relative;height:220px"><canvas id="sc-omzet">Omzet per maand.</canvas></div></div>
+        <div class="sec"><div class="sec-hdr"><div><div class="sec-title">Omzet per maand</div><div style="font-size:10px;color:var(--muted);margin-top:2px">Alleen betaalde facturen</div></div></div><div style="position:relative;height:220px"><canvas id="sc-omzet">Omzet per maand.</canvas></div></div>
         <div class="sec"><div class="sec-hdr"><div class="sec-title">Verdeling per categorie</div></div><div style="position:relative;height:180px"><canvas id="sc-cat">Verdeling.</canvas></div><div class="chart-legend" id="sc-legend"></div></div>
       </div>
       <div class="sec">
@@ -984,7 +984,7 @@ function renderCatTable(data,mp){
 function renderSalesCharts(data){
   const locs=[...new Set(data.map(r=>r.location).filter(l=>l&&l!=='Vitology Rotterdam'))].sort();
   const byMonth={};const byMonthLoc={};
-  data.forEach(r=>{
+  data.filter(r=>r.status==='betaald').forEach(r=>{
     const k=r.datum.getFullYear()+'-'+String(r.datum.getMonth()+1).padStart(2,'0');
     byMonth[k]=(byMonth[k]||0)+r.amtExcl;
     if(!byMonthLoc[k])byMonthLoc[k]={};
