@@ -94,6 +94,7 @@ tbody tr:hover td{background:#fafaf8!important}
 .tbl-delta td:first-child{color:var(--muted);font-weight:500;font-family:'DM Sans',sans-serif}
 .delta-up{color:var(--green)!important}.delta-dn{color:var(--red)!important}
 .two-col{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
+.two-col.three-col{grid-template-columns:2fr 1fr 1fr}
 .charts-row{display:grid;grid-template-columns:2fr 1fr;gap:12px;margin-bottom:12px}
 .chart-legend{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
 .leg-item{display:flex;align-items:center;gap:4px;font-size:10px;color:var(--muted)}
@@ -122,7 +123,7 @@ tbody tr:hover td{background:#fafaf8!important}
 .loc-sch{background:#e8f5ee;color:var(--green)}
 .loc-tot{background:var(--bg);color:var(--muted)}
 @media(max-width:900px){
-  .wrap{padding:14px}.two-col{grid-template-columns:1fr}.charts-row{grid-template-columns:1fr}
+  .wrap{padding:14px}.two-col,.two-col.three-col{grid-template-columns:1fr}.charts-row{grid-template-columns:1fr}
   .kpi-row.top{grid-template-columns:repeat(3,1fr)}.kpi-row.bot{grid-template-columns:repeat(3,1fr)}.kpi-row.s4{grid-template-columns:repeat(2,1fr)}
   .kpi-row.s3{grid-template-columns:repeat(2,1fr)}.cost-wrap{margin-left:0}
 }
@@ -295,9 +296,10 @@ tbody tr:hover td{background:#fafaf8!important}
         <div class="sec-hdr"><div class="sec-title">Omzet per categorie</div><button class="export-btn" onclick="exportSalesCSV()">↓ Export CSV</button></div>
         <div class="tbl-wrap"><table id="scat-tbl"></table></div>
       </div>
-      <div class="two-col">
+      <div class="two-col three-col">
         <div class="sec"><div class="sec-hdr"><div><div class="sec-title">Omzet per maand</div><div style="font-size:10px;color:var(--muted);margin-top:2px">Alleen betaalde facturen</div></div></div><div style="position:relative;height:220px"><canvas id="sc-omzet">Omzet per maand.</canvas></div></div>
         <div class="sec"><div class="sec-hdr"><div class="sec-title">Verdeling per categorie</div></div><div style="position:relative;height:180px"><canvas id="sc-cat">Verdeling.</canvas></div><div class="chart-legend" id="sc-legend"></div></div>
+        <div class="sec"><div class="sec-hdr"><div class="sec-title">Vitologists per Abo</div></div><div style="position:relative;height:180px"><canvas id="sc-abo">Vitologists per Abo.</canvas></div><div class="chart-legend" id="sc-abo-legend"></div></div>
       </div>
       <div class="sec">
         <div class="sec-hdr"><div><div class="sec-title">Omzet · alle segmenten</div><div style="font-size:10px;color:var(--muted);margin-top:2px">Klik op een rij om uit te klappen · meest recent bovenaan</div></div></div>
@@ -973,7 +975,7 @@ document.getElementById('dtc').addEventListener('change',update);
 document.getElementById('cmpBtn').addEventListener('click',function(){comparing=!comparing;this.classList.toggle('on',comparing);this.textContent=comparing?'↕ Vergelijking aan':'↕ Vergelijk met vorige periode';update();});
 
 // ==================== SALES ====================
-let SALES_DATA=[],SC_OMZET=null,SC_CAT=null,salesComparing=true,currentSalesData=[],salesExportData=[];
+let SALES_DATA=[],SC_OMZET=null,SC_CAT=null,SC_ABO=null,salesComparing=true,currentSalesData=[],salesExportData=[];
 const CATS=['Vitologist','VitoQ','Losse sessies','Credit packs','Seminars',"Producten / programma's",'Andere'];
 const CAT_COLORS={'Vitologist':'#2d5be3','VitoQ':'#1a6b4a','Losse sessies':'#e87d2d','Credit packs':'#7a4a00','Seminars':'#8c1a1a',"Producten / programma's":'#6b3fa0','Andere':'#a0a09a'};
 const LOC_COLORS={'Vitology Antwerpen':'#2d5be3','Vitology Schilde':'#1a6b4a'};
@@ -1046,12 +1048,13 @@ function renderSalesKPIs(m,mp,cmp,pf,pt){
 }
 function renderCatTable(data,mp){
   const locs=[...new Set(data.map(r=>r.location).filter(l=>l&&l!=='Vitology Rotterdam'))].sort();
-  const rows=CATS.map(cat=>{
+  const totalAll=data.reduce((s,r)=>s+r.amtExcl,0);
+  const rows=[];
+  CATS.forEach(cat=>{
     const items=data.filter(r=>r.category===cat);
     const paid=items.filter(r=>r.status==='betaald').reduce((s,r)=>s+r.amtExcl,0);
     const open=items.filter(r=>r.status==='openstaand').reduce((s,r)=>s+r.amtExcl,0);
     const total=paid+open;
-    const totalAll=data.reduce((s,r)=>s+r.amtExcl,0);
     const share=totalAll>0?Math.round(total/totalAll*100):0;
     const prevTotal=mp?mp.catTotals[cat]:0;
     const dp=mp?dltPct(total,prevTotal):null;
@@ -1059,7 +1062,28 @@ function renderCatTable(data,mp){
       const locTotal=items.filter(r=>r.location===loc).reduce((s,r)=>s+r.amtExcl,0);
       return'<td style="font-family:\'DM Mono\',monospace;color:var(--muted)">'+fmtEur(locTotal)+'</td>';
     }).join('');
-    return'<tr><td style="font-weight:500"><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:'+CAT_COLORS[cat]+';margin-right:6px"></span>'+cat+'</td><td style="font-family:\'DM Mono\',monospace;font-weight:500">'+fmtEur(total)+'</td><td style="font-family:\'DM Mono\',monospace"><span class="badge b-paid">'+fmtEur(paid)+'</span></td><td style="font-family:\'DM Mono\',monospace"><span class="badge b-open2">'+fmtEur(open)+'</span></td><td style="font-family:\'DM Mono\',monospace;color:var(--muted)">'+share+'%</td><td style="font-family:\'DM Mono\',monospace">'+(dp?'<span class="'+(dp.cls==='up'?'delta-up':dp.cls==='dn'?'delta-dn':'')+'" >'+dp.txt+'</span>':'—')+'</td>'+locCells+'</tr>';
+    const isDrillable=cat==='Vitologist'&&items.length>0;
+    const drillId='vc-'+cat.replace(/[^a-z0-9]/gi,'').toLowerCase();
+    const arrow=isDrillable?'<span class="arr" id="a-'+drillId+'">▶</span>':'';
+    const onclick=isDrillable?' class="dr" onclick="toggleDrill(\''+drillId+'\')" style="cursor:pointer"':'';
+    rows.push('<tr'+onclick+'><td style="font-weight:500">'+arrow+'<span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:'+CAT_COLORS[cat]+';margin-right:6px"></span>'+cat+'</td><td style="font-family:\'DM Mono\',monospace;font-weight:500">'+fmtEur(total)+'</td><td style="font-family:\'DM Mono\',monospace"><span class="badge b-paid">'+fmtEur(paid)+'</span></td><td style="font-family:\'DM Mono\',monospace"><span class="badge b-open2">'+fmtEur(open)+'</span></td><td style="font-family:\'DM Mono\',monospace;color:var(--muted)">'+share+'%</td><td style="font-family:\'DM Mono\',monospace">'+(dp?'<span class="'+(dp.cls==='up'?'delta-up':dp.cls==='dn'?'delta-dn':'')+'" >'+dp.txt+'</span>':'—')+'</td>'+locCells+'</tr>');
+    if(isDrillable){
+      const subs={};
+      items.forEach(r=>{const k=(r.subscription||'(geen)').trim();if(!subs[k])subs[k]=[];subs[k].push(r);});
+      const subKeys=Object.keys(subs).sort((a,b)=>subs[b].reduce((s,r)=>s+r.amtExcl,0)-subs[a].reduce((s,r)=>s+r.amtExcl,0));
+      subKeys.forEach(sub=>{
+        const sItems=subs[sub];
+        const sPaid=sItems.filter(r=>r.status==='betaald').reduce((s,r)=>s+r.amtExcl,0);
+        const sOpen=sItems.filter(r=>r.status==='openstaand').reduce((s,r)=>s+r.amtExcl,0);
+        const sTotal=sPaid+sOpen;
+        const sShare=totalAll>0?Math.round(sTotal/totalAll*100):0;
+        const sLocCells=locs.map(loc=>{
+          const lT=sItems.filter(r=>r.location===loc).reduce((s,r)=>s+r.amtExcl,0);
+          return'<td style="font-family:\'DM Mono\',monospace;color:var(--muted)">'+fmtEur(lT)+'</td>';
+        }).join('');
+        rows.push('<tr class="dr-m dc" id="c-'+drillId+'"><td style="padding-left:32px;color:var(--muted)">— '+sub+'</td><td style="font-family:\'DM Mono\',monospace">'+fmtEur(sTotal)+'</td><td style="font-family:\'DM Mono\',monospace;color:var(--green)">'+fmtEur(sPaid)+'</td><td style="font-family:\'DM Mono\',monospace;color:var(--amber)">'+fmtEur(sOpen)+'</td><td style="font-family:\'DM Mono\',monospace;color:var(--muted)">'+sShare+'%</td><td style="color:var(--muted)">—</td>'+sLocCells+'</tr>');
+      });
+    }
   });
   const totPaid=data.filter(r=>r.status==='betaald').reduce((s,r)=>s+r.amtExcl,0);
   const totOpen=data.filter(r=>r.status==='openstaand').reduce((s,r)=>s+r.amtExcl,0);
@@ -1083,13 +1107,21 @@ function renderSalesCharts(data){
   const months=Object.keys(byMonth).sort();
   const MN=['Jan','Feb','Mrt','Apr','Mei','Jun','Jul','Aug','Sep','Okt','Nov','Dec'];
   const mlbls=months.map(m=>{const[y,mo]=m.split('-');return MN[+mo-1]+' '+y;});
-  if(SC_OMZET){SC_OMZET.destroy();SC_OMZET=null;}if(SC_CAT){SC_CAT.destroy();SC_CAT=null;}
+  if(SC_OMZET){SC_OMZET.destroy();SC_OMZET=null;}if(SC_CAT){SC_CAT.destroy();SC_CAT=null;}if(SC_ABO){SC_ABO.destroy();SC_ABO=null;}
   const locDatasets=locs.map(loc=>({label:loc.replace('Vitology ',''),data:months.map(m=>Math.round((byMonthLoc[m]&&byMonthLoc[m][loc])||0)),backgroundColor:LOC_COLORS[loc]||'#a0a09a',borderColor:LOC_COLORS[loc]||'#a0a09a',borderWidth:1,borderRadius:3}));
   SC_OMZET=new Chart(document.getElementById('sc-omzet'),{type:'bar',data:{labels:mlbls,datasets:locDatasets},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:true,position:'top',labels:{font:{size:10,family:'DM Mono'},boxWidth:10}}},scales:{x:{ticks:{font:{size:10,family:'DM Mono'},maxRotation:45},grid:{display:false}},y:{ticks:{font:{size:10,family:'DM Mono'},callback:v=>'€'+Math.round(v/1000)+'k'},grid:{color:'#f0eeea'}}}}});
   const catVals=CATS.map(c=>Math.round(data.filter(r=>r.category===c).reduce((s,r)=>s+r.amtExcl,0)));
   const catCols=CATS.map(c=>CAT_COLORS[c]);
   SC_CAT=new Chart(document.getElementById('sc-cat'),{type:'doughnut',data:{labels:CATS,datasets:[{data:catVals,backgroundColor:catCols,borderWidth:2,borderColor:'#fff'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},cutout:'60%'}});
   document.getElementById('sc-legend').innerHTML=CATS.map((c,i)=>'<div class="leg-item"><div class="leg-dot" style="background:'+catCols[i]+'"></div>'+c+'</div>').join('');
+  const aboBreakdown=getActiveByAbo();
+  const aboPalette=['#2d5be3','#1a6b4a','#e87d2d','#7a4a00','#8c1a1a','#6b3fa0','#a0a09a','#1a4a8c','#4a7fdd','#e6a020'];
+  const aboLabels=Object.keys(aboBreakdown).sort((a,b)=>aboBreakdown[b]-aboBreakdown[a]);
+  const aboVals=aboLabels.map(l=>aboBreakdown[l]);
+  const aboCols=aboLabels.map((_,i)=>aboPalette[i%aboPalette.length]);
+  const aboTotal=aboVals.reduce((s,v)=>s+v,0);
+  SC_ABO=new Chart(document.getElementById('sc-abo'),{type:'doughnut',data:{labels:aboLabels,datasets:[{data:aboVals,backgroundColor:aboCols,borderWidth:2,borderColor:'#fff'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>ctx.label+': '+ctx.parsed+' ('+(aboTotal>0?Math.round(ctx.parsed/aboTotal*100):0)+'%)'}}},cutout:'60%'}});
+  document.getElementById('sc-abo-legend').innerHTML=aboLabels.map((l,i)=>'<div class="leg-item"><div class="leg-dot" style="background:'+aboCols[i]+'"></div>'+l+' ('+aboVals[i]+')</div>').join('');
 }
 function renderSalesDrillTable(data){
   const MN=['Jan','Feb','Mrt','Apr','Mei','Jun','Jul','Aug','Sep','Okt','Nov','Dec'];
