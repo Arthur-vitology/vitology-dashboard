@@ -132,6 +132,14 @@ tbody tr:hover td{background:#fafaf8!important}
 .kpi-target-status .warn{color:var(--amber);font-weight:600}
 .kpi-target-status .bad{color:var(--red);font-weight:600}
 .kpi-target-manual-input{padding:5px 8px;border:1px solid var(--bdr);border-radius:6px;background:var(--bg);font-family:'DM Mono',monospace;font-size:13px;width:80px}
+.kpi-loc-split{margin-top:12px;padding-top:10px;border-top:1px dashed var(--bdr);display:flex;flex-direction:column;gap:6px}
+.kpi-loc-row{display:grid;grid-template-columns:80px 160px 1fr 50px;align-items:center;gap:10px;font-size:11px}
+.kpi-loc-name{font-weight:600;color:var(--txt)}
+.kpi-loc-vals{color:var(--muted);font-family:'DM Mono',monospace}
+.kpi-loc-bar{position:relative;height:6px;background:var(--bg);border:1px solid var(--bdr);border-radius:3px;overflow:hidden}
+.kpi-loc-bar>div{height:100%;border-radius:3px;transition:width .3s ease}
+.kpi-loc-pct{font-family:'DM Mono',monospace;color:var(--muted);text-align:right}
+@media(max-width:900px){.kpi-loc-row{grid-template-columns:1fr 1fr;gap:4px}.kpi-loc-bar{grid-column:span 2}}
 .state-msg{text-align:center;padding:60px 20px;color:var(--muted);font-size:14px}
 .spinner{width:26px;height:26px;border:2px solid var(--bdr);border-top-color:var(--acc);border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 10px}
 @keyframes spin{to{transform:rotate(360deg)}}
@@ -973,27 +981,48 @@ function update(){
   renderCostFunnelTable(data,from,to);renderFunnel(m);
 }
 
-let MANUAL_PROGRESS_SCANS=parseInt(localStorage.getItem('progressScans')||'0',10);
+let MANUAL_PROGRESS_SCANS_ANT=parseInt(localStorage.getItem('progressScansAnt')||'0',10);
+let MANUAL_PROGRESS_SCANS_SCH=parseInt(localStorage.getItem('progressScansSch')||'0',10);
 let KPI_SUMMARY_CHART=null;
 function renderKpiTargets(){
   const el=document.getElementById('kpi-content');if(!el)return;
   const now=new Date();
   const prevMonthEnd=new Date(now.getFullYear(),now.getMonth(),0,23,59,59);
-  const activeAtPrevMonthEnd=getActiveAtDate(prevMonthEnd,null);
-  const scanTarget=Math.ceil(activeAtPrevMonthEnd*0.8);
-  const scanCurrent=MANUAL_PROGRESS_SCANS;
+  const activeAll=getActiveAtDate(prevMonthEnd,null);
+  const activeAnt=getActiveAtDate(prevMonthEnd,'Antwerpen');
+  const activeSch=getActiveAtDate(prevMonthEnd,'Schilde');
+  const scanTargetAnt=Math.ceil(activeAnt*0.8);
+  const scanTargetSch=Math.ceil(activeSch*0.8);
+  const scanTarget=scanTargetAnt+scanTargetSch;
+  const scanCurrentAnt=MANUAL_PROGRESS_SCANS_ANT;
+  const scanCurrentSch=MANUAL_PROGRESS_SCANS_SCH;
+  const scanCurrent=scanCurrentAnt+scanCurrentSch;
 
   const todayTs=dayTs(now);
-  const pastProefsessies=LEADS_DATA.filter(r=>r.proefsessie&&dayTs(r.proefsessie)<=todayTs);
-  const completedChecks=pastProefsessies.filter(r=>r.noshow==='Aanwezig').length;
-  const planned=pastProefsessies.length;
-  const completionRate=planned>0?completedChecks/planned*100:0;
+  const calcKpi2=loc=>{
+    const filt=LEADS_DATA.filter(r=>!loc||r.locatie===loc);
+    const past=filt.filter(r=>r.proefsessie&&dayTs(r.proefsessie)<=todayTs);
+    const completed=past.filter(r=>r.noshow==='Aanwezig').length;
+    return{planned:past.length,completed,rate:past.length>0?completed/past.length*100:0};
+  };
+  const calcKpi3=loc=>{
+    const showed=LEADS_DATA.filter(r=>r.noshow==='Aanwezig'&&(!loc||r.locatie===loc));
+    const withInv=showed.filter(r=>r.factuurdatum).length;
+    return{showed:showed.length,withInv,rate:showed.length>0?withInv/showed.length*100:0};
+  };
+  const k2All=calcKpi2(null),k2Ant=calcKpi2('Antwerpen'),k2Sch=calcKpi2('Schilde');
+  const k3All=calcKpi3(null),k3Ant=calcKpi3('Antwerpen'),k3Sch=calcKpi3('Schilde');
 
-  const showed=LEADS_DATA.filter(r=>r.noshow==='Aanwezig');
-  const showedWithInvoice=showed.filter(r=>r.factuurdatum).length;
-  const conversionRate=showed.length>0?showedWithInvoice/showed.length*100:0;
+  const statusCol=(cur,tgt)=>cur>=tgt?'var(--green)':cur>=tgt*0.85?'var(--amber)':'var(--red)';
+  const locRow=(name,curD,tgtD,curN,tgtN)=>{
+    const pct=tgtN>0?Math.min(100,curN/tgtN*100):0;
+    return '<div class="kpi-loc-row"><div class="kpi-loc-name">'+name+'</div>'+
+      '<div class="kpi-loc-vals">'+curD+' / '+tgtD+'</div>'+
+      '<div class="kpi-loc-bar"><div style="width:'+pct+'%;background:'+statusCol(curN,tgtN)+'"></div></div>'+
+      '<div class="kpi-loc-pct">'+Math.round(tgtN>0?curN/tgtN*100:0)+'%</div></div>';
+  };
 
-  const card=(title,desc,curLbl,curVal,tgtLbl,tgtVal,curNum,tgtNum,unit,extra)=>{
+  const card=(title,desc,curLbl,curVal,tgtLbl,tgtVal,curNum,tgtNum,unit,extra,locSplit)=>{
     const pctOfTarget=tgtNum>0?Math.min(200,curNum/tgtNum*100):0;
     const onTarget=curNum>=tgtNum;
     const close=!onTarget&&curNum>=tgtNum*0.85;
@@ -1013,12 +1042,30 @@ function renderKpiTargets(){
       (extra||'')+
       '<div class="kpi-target-bar"><div class="kpi-target-bar-fill" style="width:'+Math.min(100,pctOfTarget)+'%;background:'+fillColor+'"></div></div>'+
       '<div class="kpi-target-status"><span>'+Math.round(pctOfTarget)+'% van target</span><span class="'+statusCls+'">'+statusTxt+' ('+diffTxt+')</span></div>'+
+      (locSplit||'')+
     '</div>';
   };
 
-  const kpi1Extra='<div style="margin-bottom:10px;font-size:11px;color:var(--muted)">Aantal handmatig invoeren (later via CRM API): <input type="number" min="0" value="'+MANUAL_PROGRESS_SCANS+'" id="manual-scans" class="kpi-target-manual-input"> · Actieve Vitologists einde vorige maand: <strong>'+activeAtPrevMonthEnd+'</strong></div>';
-  const kpi2Extra='<div style="margin-bottom:10px;font-size:11px;color:var(--muted)">Gebaseerd op '+planned+' proefsessies (battery checks) gepland in het verleden, waarvan '+completedChecks+' aanwezig.</div>';
-  const kpi3Extra='<div style="margin-bottom:10px;font-size:11px;color:var(--muted)">Van '+showed.length+' afgeronde battery checks (aanwezig) hebben '+showedWithInvoice+' een eerste factuur (= klant geworden).</div>';
+  const kpi1Extra='<div style="margin-bottom:10px;font-size:11px;color:var(--muted)">Per locatie invoeren (later via CRM API): '+
+    'Antwerpen <input type="number" min="0" value="'+MANUAL_PROGRESS_SCANS_ANT+'" id="manual-scans-ant" class="kpi-target-manual-input"> · '+
+    'Schilde <input type="number" min="0" value="'+MANUAL_PROGRESS_SCANS_SCH+'" id="manual-scans-sch" class="kpi-target-manual-input"> · '+
+    'Actieve Vitologists einde vorige maand: <strong>'+activeAll+'</strong> (Ant '+activeAnt+' · Sch '+activeSch+')</div>';
+  const kpi1Loc='<div class="kpi-loc-split">'+
+    locRow('Antwerpen',scanCurrentAnt,scanTargetAnt,scanCurrentAnt,scanTargetAnt)+
+    locRow('Schilde',scanCurrentSch,scanTargetSch,scanCurrentSch,scanTargetSch)+
+  '</div>';
+
+  const kpi2Extra='<div style="margin-bottom:10px;font-size:11px;color:var(--muted)">Gebaseerd op '+k2All.planned+' proefsessies (battery checks) gepland in het verleden, waarvan '+k2All.completed+' aanwezig.</div>';
+  const kpi2Loc='<div class="kpi-loc-split">'+
+    locRow('Antwerpen',k2Ant.rate.toFixed(1)+'% ('+k2Ant.completed+'/'+k2Ant.planned+')','70%',k2Ant.rate,70)+
+    locRow('Schilde',k2Sch.rate.toFixed(1)+'% ('+k2Sch.completed+'/'+k2Sch.planned+')','70%',k2Sch.rate,70)+
+  '</div>';
+
+  const kpi3Extra='<div style="margin-bottom:10px;font-size:11px;color:var(--muted)">Van '+k3All.showed+' afgeronde battery checks (aanwezig) hebben '+k3All.withInv+' een eerste factuur (= klant geworden).</div>';
+  const kpi3Loc='<div class="kpi-loc-split">'+
+    locRow('Antwerpen',k3Ant.rate.toFixed(1)+'% ('+k3Ant.withInv+'/'+k3Ant.showed+')','60%',k3Ant.rate,60)+
+    locRow('Schilde',k3Sch.rate.toFixed(1)+'% ('+k3Sch.withInv+'/'+k3Sch.showed+')','60%',k3Sch.rate,60)+
+  '</div>';
 
   el.innerHTML=
     '<div class="sec" style="margin-bottom:12px">'+
@@ -1028,29 +1075,29 @@ function renderKpiTargets(){
     card(
       '1. Progress scans gepland in de toekomst',
       'Het aantal toekomstige geplande progress scans moet 80% zijn van het aantal actieve Vitologists op het einde van de voorgaande maand.',
-      'Huidig','<span id="scan-cur">'+scanCurrent+'</span>','Target',scanTarget,
+      'Huidig',scanCurrent,'Target',scanTarget,
       scanCurrent,scanTarget,'',
-      kpi1Extra
+      kpi1Extra,kpi1Loc
     )+
     card(
       '2. Battery checks afgerond',
       '70% van de leads die hun battery check (= proefsessie) hebben ingepland, moet die ook afgerond hebben op locatie.',
-      'Huidig',completionRate.toFixed(1)+'%','Target','70%',
-      completionRate,70,'%',
-      kpi2Extra
+      'Huidig',k2All.rate.toFixed(1)+'%','Target','70%',
+      k2All.rate,70,'%',
+      kpi2Extra,kpi2Loc
     )+
     card(
       '3. Conversie battery check → paid client',
       '60% van het aantal afgeronde battery checks bij nieuwe klanten moet Vitologist worden.',
-      'Huidig',conversionRate.toFixed(1)+'%','Target','60%',
-      conversionRate,60,'%',
-      kpi3Extra
+      'Huidig',k3All.rate.toFixed(1)+'%','Target','60%',
+      k3All.rate,60,'%',
+      kpi3Extra,kpi3Loc
     );
 
   const summary=[
     {lbl:'1. Progress scans',cur:scanCurrent,tgt:scanTarget,curD:scanCurrent,tgtD:scanTarget,unit:''},
-    {lbl:'2. Battery checks afgerond',cur:completionRate,tgt:70,curD:completionRate.toFixed(1)+'%',tgtD:'70%',unit:'%'},
-    {lbl:'3. Conversie naar klant',cur:conversionRate,tgt:60,curD:conversionRate.toFixed(1)+'%',tgtD:'60%',unit:'%'},
+    {lbl:'2. Battery checks afgerond',cur:k2All.rate,tgt:70,curD:k2All.rate.toFixed(1)+'%',tgtD:'70%',unit:'%'},
+    {lbl:'3. Conversie naar klant',cur:k3All.rate,tgt:60,curD:k3All.rate.toFixed(1)+'%',tgtD:'60%',unit:'%'},
   ];
   const rates=summary.map(s=>s.tgt>0?Math.round(s.cur/s.tgt*100):0);
   const colors=rates.map(r=>r>=100?'#1a6b4a':r>=85?'#7a4a00':'#8c1a1a');
@@ -1074,8 +1121,10 @@ function renderKpiTargets(){
     });
   }
 
-  const inp=document.getElementById('manual-scans');
-  if(inp)inp.addEventListener('input',function(){MANUAL_PROGRESS_SCANS=parseInt(this.value||'0',10);localStorage.setItem('progressScans',String(MANUAL_PROGRESS_SCANS));renderKpiTargets();});
+  const ia=document.getElementById('manual-scans-ant');
+  if(ia)ia.addEventListener('input',function(){MANUAL_PROGRESS_SCANS_ANT=parseInt(this.value||'0',10);localStorage.setItem('progressScansAnt',String(MANUAL_PROGRESS_SCANS_ANT));renderKpiTargets();});
+  const is=document.getElementById('manual-scans-sch');
+  if(is)is.addEventListener('input',function(){MANUAL_PROGRESS_SCANS_SCH=parseInt(this.value||'0',10);localStorage.setItem('progressScansSch',String(MANUAL_PROGRESS_SCANS_SCH));renderKpiTargets();});
 }
 
 async function loadLeads(){
