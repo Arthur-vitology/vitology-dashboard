@@ -981,35 +981,52 @@ function update(){
   renderCostFunnelTable(data,from,to);renderFunnel(m);
 }
 
-let MANUAL_PROGRESS_SCANS_ANT=parseInt(localStorage.getItem('progressScansAnt')||'0',10);
-let MANUAL_PROGRESS_SCANS_SCH=parseInt(localStorage.getItem('progressScansSch')||'0',10);
 let KPI_SUMMARY_CHART=null;
+let SELECTED_KPI_MONTH=null;
+function initKpiMonth(){if(SELECTED_KPI_MONTH)return;const d=new Date();SELECTED_KPI_MONTH=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');}
+function getKpiMonthOptions(){
+  const now=new Date();const MN=['Jan','Feb','Mrt','Apr','Mei','Jun','Jul','Aug','Sep','Okt','Nov','Dec'];
+  const opts=[];
+  for(let i=6;i>=-12;i--){
+    const d=new Date(now.getFullYear(),now.getMonth()+i,1);
+    const key=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+    opts.push({key,lbl:MN[d.getMonth()]+' '+d.getFullYear()});
+  }
+  return opts;
+}
+function getMonthRange(monthKey){const[y,m]=monthKey.split('-').map(Number);return[new Date(y,m-1,1,0,0,0),new Date(y,m,0,23,59,59)];}
+function getProgressScans(monthKey,loc){return parseInt(localStorage.getItem('progressScans.'+monthKey+'.'+loc)||'0',10);}
+function setProgressScans(monthKey,loc,val){localStorage.setItem('progressScans.'+monthKey+'.'+loc,String(val));}
 function renderKpiTargets(){
+  initKpiMonth();
   const el=document.getElementById('kpi-content');if(!el)return;
   const now=new Date();
-  const prevMonthEnd=new Date(now.getFullYear(),now.getMonth(),0,23,59,59);
+  const[monthStart,monthEnd]=getMonthRange(SELECTED_KPI_MONTH);
+  const prevMonthEnd=new Date(monthStart.getTime()-1);
   const activeAll=getActiveAtDate(prevMonthEnd,null);
   const activeAnt=getActiveAtDate(prevMonthEnd,'Antwerpen');
   const activeSch=getActiveAtDate(prevMonthEnd,'Schilde');
   const scanTargetAnt=Math.ceil(activeAnt*0.8);
   const scanTargetSch=Math.ceil(activeSch*0.8);
   const scanTarget=scanTargetAnt+scanTargetSch;
-  const scanCurrentAnt=MANUAL_PROGRESS_SCANS_ANT;
-  const scanCurrentSch=MANUAL_PROGRESS_SCANS_SCH;
+  const scanCurrentAnt=getProgressScans(SELECTED_KPI_MONTH,'Antwerpen');
+  const scanCurrentSch=getProgressScans(SELECTED_KPI_MONTH,'Schilde');
   const scanCurrent=scanCurrentAnt+scanCurrentSch;
 
   const todayTs=dayTs(now);
   const calcKpi2=loc=>{
-    const filt=LEADS_DATA.filter(r=>!loc||r.locatie===loc);
-    const past=filt.filter(r=>r.proefsessie&&dayTs(r.proefsessie)<=todayTs);
+    const past=LEADS_DATA.filter(r=>(!loc||r.locatie===loc)&&r.proefsessie&&r.proefsessie>=monthStart&&r.proefsessie<=monthEnd&&dayTs(r.proefsessie)<=todayTs);
     const completed=past.filter(r=>r.noshow==='Aanwezig').length;
     return{planned:past.length,completed,rate:past.length>0?completed/past.length*100:0};
   };
   const calcKpi3=loc=>{
-    const showed=LEADS_DATA.filter(r=>r.noshow==='Aanwezig'&&(!loc||r.locatie===loc));
+    const showed=LEADS_DATA.filter(r=>r.noshow==='Aanwezig'&&(!loc||r.locatie===loc)&&r.proefsessie&&r.proefsessie>=monthStart&&r.proefsessie<=monthEnd);
     const withInv=showed.filter(r=>r.factuurdatum).length;
     return{showed:showed.length,withInv,rate:showed.length>0?withInv/showed.length*100:0};
   };
+  const MN=['Jan','Feb','Mrt','Apr','Mei','Jun','Jul','Aug','Sep','Okt','Nov','Dec'];
+  const monthLbl=MN[monthStart.getMonth()]+' '+monthStart.getFullYear();
+  const prevMonthLbl=MN[prevMonthEnd.getMonth()]+' '+prevMonthEnd.getFullYear();
   const k2All=calcKpi2(null),k2Ant=calcKpi2('Antwerpen'),k2Sch=calcKpi2('Schilde');
   const k3All=calcKpi3(null),k3Ant=calcKpi3('Antwerpen'),k3Sch=calcKpi3('Schilde');
 
@@ -1046,10 +1063,10 @@ function renderKpiTargets(){
     '</div>';
   };
 
-  const kpi1Extra='<div style="margin-bottom:10px;font-size:11px;color:var(--muted)">Per locatie invoeren (later via CRM API): '+
-    'Antwerpen <input type="number" min="0" value="'+MANUAL_PROGRESS_SCANS_ANT+'" id="manual-scans-ant" class="kpi-target-manual-input"> · '+
-    'Schilde <input type="number" min="0" value="'+MANUAL_PROGRESS_SCANS_SCH+'" id="manual-scans-sch" class="kpi-target-manual-input"> · '+
-    'Actieve Vitologists einde vorige maand: <strong>'+activeAll+'</strong> (Ant '+activeAnt+' · Sch '+activeSch+')</div>';
+  const kpi1Extra='<div style="margin-bottom:10px;font-size:11px;color:var(--muted)">Per locatie invoeren voor '+monthLbl+' (later via CRM API): '+
+    'Antwerpen <input type="number" min="0" value="'+scanCurrentAnt+'" id="manual-scans-ant" class="kpi-target-manual-input"> · '+
+    'Schilde <input type="number" min="0" value="'+scanCurrentSch+'" id="manual-scans-sch" class="kpi-target-manual-input"> · '+
+    'Actieve Vitologists einde '+prevMonthLbl+': <strong>'+activeAll+'</strong> (Ant '+activeAnt+' · Sch '+activeSch+')</div>';
   const kpi1Loc='<div class="kpi-loc-split">'+
     locRow('Antwerpen',scanCurrentAnt,scanTargetAnt,scanCurrentAnt,scanTargetAnt)+
     locRow('Schilde',scanCurrentSch,scanTargetSch,scanCurrentSch,scanTargetSch)+
@@ -1067,9 +1084,11 @@ function renderKpiTargets(){
     locRow('Schilde',k3Sch.rate.toFixed(1)+'% ('+k3Sch.withInv+'/'+k3Sch.showed+')','60%',k3Sch.rate,60)+
   '</div>';
 
+  const monthOpts=getKpiMonthOptions().map(o=>'<option value="'+o.key+'"'+(o.key===SELECTED_KPI_MONTH?' selected':'')+'>'+o.lbl+'</option>').join('');
   el.innerHTML=
+    '<div class="sec" style="display:flex;align-items:center;gap:12px;margin-bottom:12px;padding:10px 14px"><label style="font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em">Maand</label><select id="kpi-month" class="fg-select" style="font-family:\'DM Sans\',sans-serif;font-size:12px;font-weight:500;padding:5px 24px 5px 8px;border:1px solid var(--bdr);border-radius:6px;background:var(--bg);color:var(--txt);cursor:pointer">'+monthOpts+'</select><span style="font-size:11px;color:var(--muted)">Alle metrics en KPI 1 input zijn voor de geselecteerde maand</span></div>'+
     '<div class="sec" style="margin-bottom:12px">'+
-      '<div class="sec-hdr"><div><div class="sec-title">KPI overzicht vs target</div><div style="font-size:10px;color:var(--muted);margin-top:2px">% van target behaald · 100% = target gehaald</div></div></div>'+
+      '<div class="sec-hdr"><div><div class="sec-title">KPI overzicht vs target — '+monthLbl+'</div><div style="font-size:10px;color:var(--muted);margin-top:2px">% van target behaald · 100% = target gehaald</div></div></div>'+
       '<div style="position:relative;height:180px"><canvas id="kpi-summary-chart"></canvas></div>'+
     '</div>'+
     card(
@@ -1122,9 +1141,11 @@ function renderKpiTargets(){
   }
 
   const ia=document.getElementById('manual-scans-ant');
-  if(ia)ia.addEventListener('input',function(){MANUAL_PROGRESS_SCANS_ANT=parseInt(this.value||'0',10);localStorage.setItem('progressScansAnt',String(MANUAL_PROGRESS_SCANS_ANT));renderKpiTargets();});
+  if(ia)ia.addEventListener('input',function(){setProgressScans(SELECTED_KPI_MONTH,'Antwerpen',parseInt(this.value||'0',10));renderKpiTargets();});
   const is=document.getElementById('manual-scans-sch');
-  if(is)is.addEventListener('input',function(){MANUAL_PROGRESS_SCANS_SCH=parseInt(this.value||'0',10);localStorage.setItem('progressScansSch',String(MANUAL_PROGRESS_SCANS_SCH));renderKpiTargets();});
+  if(is)is.addEventListener('input',function(){setProgressScans(SELECTED_KPI_MONTH,'Schilde',parseInt(this.value||'0',10));renderKpiTargets();});
+  const ms=document.getElementById('kpi-month');
+  if(ms)ms.addEventListener('change',function(){SELECTED_KPI_MONTH=this.value;renderKpiTargets();});
 }
 
 async function loadLeads(){
