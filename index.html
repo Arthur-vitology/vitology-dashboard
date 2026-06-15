@@ -115,6 +115,23 @@ tbody tr:hover td{background:#fafaf8!important}
 .fn-sub.lost .fn-sub-lbl{color:var(--red)}.fn-sub.lost .fn-sub-val{color:var(--red)}
 .fn-sub.show .fn-sub-lbl{color:var(--blue)}.fn-sub.show .fn-sub-val{color:var(--blue)}
 .fn-sub.noshow .fn-sub-lbl{color:var(--amber)}.fn-sub.noshow .fn-sub-val{color:var(--amber)}
+.kpi-target{background:var(--surf);border:1px solid var(--bdr);border-radius:10px;padding:18px 22px;margin-bottom:12px}
+.kpi-target-hdr{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin-bottom:14px;flex-wrap:wrap}
+.kpi-target-title{font-size:14px;font-weight:600;color:var(--txt);margin-bottom:4px}
+.kpi-target-desc{font-size:11px;color:var(--muted);max-width:560px;line-height:1.5}
+.kpi-target-vals{display:flex;gap:24px;flex-wrap:wrap}
+.kpi-target-val{display:flex;flex-direction:column;gap:2px;min-width:90px}
+.kpi-target-val .lbl{font-size:9px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.kpi-target-val .val{font-size:22px;font-weight:600;font-family:'DM Mono',monospace;letter-spacing:-.02em}
+.kpi-target-val .val.cur{color:var(--blue)}.kpi-target-val .val.tgt{color:var(--muted)}
+.kpi-target-bar{position:relative;height:10px;background:var(--bg);border-radius:5px;overflow:hidden;border:1px solid var(--bdr)}
+.kpi-target-bar-fill{position:absolute;top:0;left:0;height:100%;border-radius:5px;transition:width .3s ease}
+.kpi-target-bar-marker{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--txt)}
+.kpi-target-status{display:flex;justify-content:space-between;align-items:center;margin-top:8px;font-size:11px;font-family:'DM Mono',monospace}
+.kpi-target-status .good{color:var(--green);font-weight:600}
+.kpi-target-status .warn{color:var(--amber);font-weight:600}
+.kpi-target-status .bad{color:var(--red);font-weight:600}
+.kpi-target-manual-input{padding:5px 8px;border:1px solid var(--bdr);border-radius:6px;background:var(--bg);font-family:'DM Mono',monospace;font-size:13px;width:80px}
 .state-msg{text-align:center;padding:60px 20px;color:var(--muted);font-size:14px}
 .spinner{width:26px;height:26px;border:2px solid var(--bdr);border-top-color:var(--acc);border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 10px}
 @keyframes spin{to{transform:rotate(360deg)}}
@@ -136,6 +153,7 @@ tbody tr:hover td{background:#fafaf8!important}
     <div class="tabs">
       <button class="tab active" onclick="switchTab('leads')">Leads dashboard</button>
       <button class="tab" onclick="switchTab('sales')">Sales dashboard</button>
+      <button class="tab" onclick="switchTab('kpi')">KPI targets</button>
     </div>
     <div class="lu" id="lu">Laden...</div>
   </div>
@@ -309,6 +327,9 @@ tbody tr:hover td{background:#fafaf8!important}
     </div>
     <div id="sales-err" class="state-msg" style="display:none">Kon sales data niet laden.</div>
   </div>
+  <div id="tab-kpi" class="tab-content">
+    <div id="kpi-content"></div>
+  </div>
 </div>
 <script>
 const LEADS_CSV='https://docs.google.com/spreadsheets/d/e/2PACX-1vQ6ul9nS3hs_bL9YVDy05O_kVdGoWsMHcqxME6DPqbarHPW_f4TqYAND05HvgsyEmPePTnTy8rRgXWv/pub?output=csv';
@@ -329,9 +350,11 @@ function switchTab(tab){
   activeTab=tab;
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
   document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
-  document.querySelector('.tab:nth-child('+(tab==='leads'?1:2)+')').classList.add('active');
+  const idx=tab==='leads'?1:tab==='sales'?2:3;
+  document.querySelector('.tab:nth-child('+idx+')').classList.add('active');
   document.getElementById('tab-'+tab).classList.add('active');
   if(tab==='sales'&&SALES_DATA.length===0)loadSales();
+  if(tab==='kpi')renderKpiTargets();
 }
 
 let LEADS_DATA=[],CL=null,CS=null,curMode='abs',comparing=true,currentLeadsData=[];
@@ -949,6 +972,80 @@ function update(){
   renderGroupTable(data,'locatie','tloc');renderGroupTable(data,'bron','tbron');
   renderCostFunnelTable(data,from,to);renderFunnel(m);
 }
+
+let MANUAL_PROGRESS_SCANS=parseInt(localStorage.getItem('progressScans')||'0',10);
+function renderKpiTargets(){
+  const el=document.getElementById('kpi-content');if(!el)return;
+  const now=new Date();
+  const prevMonthEnd=new Date(now.getFullYear(),now.getMonth(),0,23,59,59);
+  const activeAtPrevMonthEnd=getActiveAtDate(prevMonthEnd,null);
+  const scanTarget=Math.ceil(activeAtPrevMonthEnd*0.8);
+  const scanCurrent=MANUAL_PROGRESS_SCANS;
+
+  const todayTs=dayTs(now);
+  const pastProefsessies=LEADS_DATA.filter(r=>r.proefsessie&&dayTs(r.proefsessie)<=todayTs);
+  const completedChecks=pastProefsessies.filter(r=>r.noshow==='Aanwezig').length;
+  const planned=pastProefsessies.length;
+  const completionRate=planned>0?completedChecks/planned*100:0;
+
+  const showed=LEADS_DATA.filter(r=>r.noshow==='Aanwezig');
+  const showedWithInvoice=showed.filter(r=>r.factuurdatum).length;
+  const conversionRate=showed.length>0?showedWithInvoice/showed.length*100:0;
+
+  const card=(title,desc,curLbl,curVal,tgtLbl,tgtVal,curNum,tgtNum,unit,extra)=>{
+    const pctOfTarget=tgtNum>0?Math.min(200,curNum/tgtNum*100):0;
+    const onTarget=curNum>=tgtNum;
+    const close=!onTarget&&curNum>=tgtNum*0.85;
+    const fillColor=onTarget?'var(--green)':close?'var(--amber)':'var(--red)';
+    const statusCls=onTarget?'good':close?'warn':'bad';
+    const statusTxt=onTarget?'✓ Op target':close?'⚠ Net onder target':'✗ Onder target';
+    const diff=curNum-tgtNum;
+    const diffTxt=(diff>=0?'+':'')+diff.toFixed(unit==='%'?1:0)+unit;
+    return '<div class="kpi-target">'+
+      '<div class="kpi-target-hdr">'+
+        '<div><div class="kpi-target-title">'+title+'</div><div class="kpi-target-desc">'+desc+'</div></div>'+
+        '<div class="kpi-target-vals">'+
+          '<div class="kpi-target-val"><span class="lbl">'+curLbl+'</span><span class="val cur">'+curVal+'</span></div>'+
+          '<div class="kpi-target-val"><span class="lbl">'+tgtLbl+'</span><span class="val tgt">'+tgtVal+'</span></div>'+
+        '</div>'+
+      '</div>'+
+      (extra||'')+
+      '<div class="kpi-target-bar"><div class="kpi-target-bar-fill" style="width:'+Math.min(100,pctOfTarget)+'%;background:'+fillColor+'"></div></div>'+
+      '<div class="kpi-target-status"><span>'+Math.round(pctOfTarget)+'% van target</span><span class="'+statusCls+'">'+statusTxt+' ('+diffTxt+')</span></div>'+
+    '</div>';
+  };
+
+  const kpi1Extra='<div style="margin-bottom:10px;font-size:11px;color:var(--muted)">Aantal handmatig invoeren (later via CRM API): <input type="number" min="0" value="'+MANUAL_PROGRESS_SCANS+'" id="manual-scans" class="kpi-target-manual-input"> · Actieve Vitologists einde vorige maand: <strong>'+activeAtPrevMonthEnd+'</strong></div>';
+  const kpi2Extra='<div style="margin-bottom:10px;font-size:11px;color:var(--muted)">Gebaseerd op '+planned+' proefsessies (battery checks) gepland in het verleden, waarvan '+completedChecks+' aanwezig.</div>';
+  const kpi3Extra='<div style="margin-bottom:10px;font-size:11px;color:var(--muted)">Van '+showed.length+' afgeronde battery checks (aanwezig) hebben '+showedWithInvoice+' een eerste factuur (= klant geworden).</div>';
+
+  el.innerHTML=
+    card(
+      '1. Progress scans gepland in de toekomst',
+      'Het aantal toekomstige geplande progress scans moet 80% zijn van het aantal actieve Vitologists op het einde van de voorgaande maand.',
+      'Huidig','<span id="scan-cur">'+scanCurrent+'</span>','Target',scanTarget,
+      scanCurrent,scanTarget,'',
+      kpi1Extra
+    )+
+    card(
+      '2. Battery checks afgerond',
+      '70% van de leads die hun battery check (= proefsessie) hebben ingepland, moet die ook afgerond hebben op locatie.',
+      'Huidig',completionRate.toFixed(1)+'%','Target','70%',
+      completionRate,70,'%',
+      kpi2Extra
+    )+
+    card(
+      '3. Conversie battery check → paid client',
+      '60% van het aantal afgeronde battery checks bij nieuwe klanten moet Vitologist worden.',
+      'Huidig',conversionRate.toFixed(1)+'%','Target','60%',
+      conversionRate,60,'%',
+      kpi3Extra
+    );
+
+  const inp=document.getElementById('manual-scans');
+  if(inp)inp.addEventListener('input',function(){MANUAL_PROGRESS_SCANS=parseInt(this.value||'0',10);localStorage.setItem('progressScans',String(MANUAL_PROGRESS_SCANS));renderKpiTargets();});
+}
+
 async function loadLeads(){
   try{
     await Promise.all([loadGoogleAdsData(),loadAdSheetData(META_ADS_CSV,META_ADS_DATA),loadAdSheetData(TIKTOK_ADS_CSV,TIKTOK_ADS_DATA)]);
