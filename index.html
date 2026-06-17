@@ -1239,7 +1239,7 @@ function renderSalesKPIs(m,mp,cmp,pf,pt){
     ke('Totale omzet',fmtEur(m.total),'c-green c-greenbdr',null,dp('total'))+
     ke('Betaald',fmtEur(m.totalPaid),'c-green',''+m.paidCount+' facturen',dp('totalPaid'))+
     ke('Openstaand',fmtEur(m.totalOpen),'c-amber c-amberbdr',''+m.openCount+' facturen',dp('totalOpen'))+
-    ke('Gem. per factuur',m.nonZeroCount>0?fmtEur(m.nonZeroTotal/m.nonZeroCount):'€ —','c-blue','Bevat geen 0 euro-facturen',null);
+    ke('Gem. per factuur (excl. BTW)',m.nonZeroCount>0?fmtEur(m.nonZeroTotal/m.nonZeroCount):'€ —','c-blue','Bevat geen 0 euro-facturen',null);
   document.getElementById('skpis2').innerHTML=
     ke('Actieve Vitologists',ACTIVE_VITOLOGISTS,'c-blue c-bluebdr','op basis van Vitologists tab',null)+
     ke('VitoQ sessies',m.vitoqs,'','',dp('vitoqs'))+
