@@ -634,6 +634,7 @@ function renderKPIs(m,mp,cmp,from,to,pf,pt){
   const prvLbl=(cmp&&mp&&pf&&pt)?periodLabel(pf,pt):null;
   const d=k=>(cmp&&mp)?dlt(m[k],mp[k],prvLbl):null;
   const dp=k=>(cmp&&mp)?dltPct(m[k],mp[k],prvLbl):null;
+  const dpNeg=k=>{const r=dp(k);if(r&&r.cls==='up')r.cls='dn';else if(r&&r.cls==='dn')r.cls='up';return r;};
   const dpInv=(cur,prv)=>{if(!cmp||!mp||!prv)return null;const r=dltPct(cur,prv,prvLbl);if(r.cls==='up')r.cls='dn';else if(r.cls==='dn')r.cls='up';return r;};
   const cpl=m.t>0?cost/m.t:0;
   const prevCpl=mp&&mp.t>0?prevCost/mp.t:0;
@@ -650,8 +651,8 @@ function renderKPIs(m,mp,cmp,from,to,pf,pt){
     kc('Gecontacteerd',m.c,'',pct(m.c,m.t)+'% van leads',dp('c'))+
     kc('Sessie gepland',m.s,'',pct(m.s,m.t)+'% van leads',dp('s'))+
     kc('Show',m.sh,'',pct(m.sh,m.sh+m.ns)+'% show rate',dp('sh'))+
-    kc('No-show',m.ns,'',null,dp('ns'))+
-    kc('Open','<span class="badge b-open">'+m.o+'</span>','',pct(m.o,m.t)+'% van leads',dp('o'))+
+    kc('No-show',m.ns,'',null,dpNeg('ns'))+
+    kc('Open','<span class="badge b-open">'+m.o+'</span>','',pct(m.o,m.t)+'% van leads',dpNeg('o'))+
     kc('Lost','<span class="badge b-lost">'+m.l+'</span>','',pct(m.l,m.t)+'% van leads',dp('l'));
 }
 function renderFunnel(m){
