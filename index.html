@@ -653,7 +653,7 @@ function renderKPIs(m,mp,cmp,from,to,pf,pt){
     kc('Show',m.sh,'',pct(m.sh,m.sh+m.ns)+'% show rate',dp('sh'))+
     kc('No-show',m.ns,'',null,dpNeg('ns'))+
     kc('Open','<span class="badge b-open">'+m.o+'</span>','',pct(m.o,m.t)+'% van leads',dpNeg('o'))+
-    kc('Lost','<span class="badge b-lost">'+m.l+'</span>','',pct(m.l,m.t)+'% van leads',dp('l'));
+    kc('Lost','<span class="badge b-lost">'+m.l+'</span>','',pct(m.l,m.t)+'% van leads',dpNeg('l'));
 }
 function renderFunnel(m){
   const el=document.getElementById('funnel');if(!el)return;
