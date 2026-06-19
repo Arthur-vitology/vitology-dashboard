@@ -630,16 +630,22 @@ function calcLeads(d){
 }
 function renderKPIs(m,mp,cmp,from,to,pf,pt){
   const cost=getTotalAdCost(from,to);
+  const prevCost=(cmp&&mp&&pf&&pt)?getTotalAdCost(pf,pt):0;
   const prvLbl=(cmp&&mp&&pf&&pt)?periodLabel(pf,pt):null;
   const d=k=>(cmp&&mp)?dlt(m[k],mp[k],prvLbl):null;
   const dp=k=>(cmp&&mp)?dltPct(m[k],mp[k],prvLbl):null;
+  const dpInv=(cur,prv)=>{if(!cmp||!mp||!prv)return null;const r=dltPct(cur,prv,prvLbl);if(r.cls==='up')r.cls='dn';else if(r.cls==='dn')r.cls='up';return r;};
+  const cpl=m.t>0?cost/m.t:0;
+  const prevCpl=mp&&mp.t>0?prevCost/mp.t:0;
+  const cpw=m.w>0?cost/m.w:0;
+  const prevCpw=mp&&mp.w>0?prevCost/mp.w:0;
   const kc=(lbl,val,cls,sub,cmpd)=>'<div class="kpi '+cls+'"><div class="kpi-lbl">'+lbl+'</div><div class="kpi-val">'+val+'</div>'+(sub?'<div class="kpi-sub">'+sub+'</div>':'')+(cmpd?'<div class="kpi-cmp '+cmpd.cls+'">'+cmpd.txt+'</div>':'')+'</div>';
   document.getElementById('kpis1').innerHTML=
-    kc('Totale kost',cost>0?'€ '+Math.round(cost).toLocaleString('nl-BE'):'€ —','c-red','',null)+
+    kc('Totale kost',cost>0?'€ '+Math.round(cost).toLocaleString('nl-BE'):'€ —','c-red','',dpInv(cost,prevCost))+
     kc('Leads',m.t,'',null,dp('t'))+
-    kc('Kost per lead',cpp(cost,m.t),'c-blue','',null)+
+    kc('Kost per lead',cpp(cost,m.t),'c-blue','',dpInv(cpl,prevCpl))+
     kc('Won (klanten)',m.w,'c-green c-greenbdr','Win rate '+m.wr+'%',dp('w'))+
-    kc('Kost per won',cpp(cost,m.w),'c-red c-redbdr','',null);
+    kc('Kost per won',cpp(cost,m.w),'c-red c-redbdr','',dpInv(cpw,prevCpw));
   document.getElementById('kpis2').innerHTML=
     kc('Gecontacteerd',m.c,'',pct(m.c,m.t)+'% van leads',dp('c'))+
     kc('Sessie gepland',m.s,'',pct(m.s,m.t)+'% van leads',dp('s'))+
