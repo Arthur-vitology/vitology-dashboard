@@ -1063,10 +1063,9 @@ function renderKpiTargets(){
     const completed=past.filter(r=>r.noshow==='Aanwezig').length;
     return{planned:past.length,completed,rate:past.length>0?completed/past.length*100:0};
   };
-  const vitoEmails=getVitologistEmails();
   const calcKpi3=loc=>{
     const showed=LEADS_DATA.filter(r=>r.noshow==='Aanwezig'&&(!loc||r.locatie===loc)&&r.proefsessie&&r.proefsessie>=monthStart&&r.proefsessie<=monthEnd);
-    const withInv=showed.filter(r=>r.factuurdatum&&r.email&&vitoEmails.has(r.email)).length;
+    const withInv=showed.filter(r=>r.factuurdatum).length;
     return{showed:showed.length,withInv,rate:showed.length>0?withInv/showed.length*100:0};
   };
   const MN=['Jan','Feb','Mrt','Apr','Mei','Jun','Jul','Aug','Sep','Okt','Nov','Dec'];
@@ -1123,7 +1122,7 @@ function renderKpiTargets(){
     locRow('Schilde',k2Sch.rate.toFixed(1)+'% ('+k2Sch.completed+'/'+k2Sch.planned+')','70%',k2Sch.rate,70)+
   '</div>';
 
-  const kpi3Extra='<div style="margin-bottom:10px;font-size:11px;color:var(--muted)">Van '+k3All.showed+' afgeronde battery checks (aanwezig) zijn '+k3All.withInv+' Vitologist geworden (match op email tussen leads en Vitologists sheet · VitoQ-only telt niet).</div>';
+  const kpi3Extra='<div style="margin-bottom:10px;font-size:11px;color:var(--muted)">Van '+k3All.showed+' afgeronde battery checks (aanwezig) hebben '+k3All.withInv+' een eerste factuur (= klant geworden).</div>';
   const kpi3Loc='<div class="kpi-loc-split">'+
     locRow('Antwerpen',k3Ant.rate.toFixed(1)+'% ('+k3Ant.withInv+'/'+k3Ant.showed+')','60%',k3Ant.rate,60)+
     locRow('Schilde',k3Sch.rate.toFixed(1)+'% ('+k3Sch.withInv+'/'+k3Sch.showed+')','60%',k3Sch.rate,60)+
