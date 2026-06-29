@@ -105,6 +105,9 @@ tbody tr:hover td{background:#fafaf8!important}
 .fn-stage{font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px}
 .fn-val{font-size:22px;font-weight:600;letter-spacing:-.02em;line-height:1.05}
 .fn-conv{font-size:10px;color:var(--muted);font-family:'DM Mono',monospace;margin-top:3px}
+.fn-delta{font-size:10px;font-family:'DM Mono',monospace;margin-top:2px}
+.fn-delta.up{color:var(--green)}.fn-delta.dn{color:var(--red)}.fn-delta.eq{color:var(--muted)}
+.fn-sub .fn-delta{margin-left:6px;font-size:9px}
 .fn-arrow{display:flex;align-items:center;justify-content:center;font-size:14px;color:var(--bdr);min-width:18px}
 .fn-arrow .fn-drop{font-size:9px;color:var(--muted);font-family:'DM Mono',monospace;text-align:center;line-height:1.1;margin-top:2px}
 .fn-arrow-stack{display:flex;flex-direction:column;align-items:center}
@@ -680,14 +683,22 @@ function renderKPIs(m,mp,cmp,from,to,pf,pt){
     kc('Open','<span class="badge b-open">'+m.o+'</span>','',pct(m.o,m.t)+'% van leads',dpNeg('o'))+
     kc('Lost','<span class="badge b-lost">'+m.l+'</span>','',pct(m.l,m.t)+'% van leads',dpNeg('l'));
 }
-function renderFunnel(m,from,to){
+function renderFunnel(m,from,to,mp,pf,pt){
   const el=document.getElementById('funnel');if(!el)return;
   const visits=getGA4Sessions(from,to);
+  const prevVisits=(mp&&pf&&pt)?getGA4Sessions(pf,pt):0;
+  const deltaTxt=(cur,prv,inverse)=>{
+    if(!mp||!prv)return '';
+    const d=Math.round((cur-prv)/prv*100);if(!isFinite(d))return '';
+    const sg=d>=0?'+':'';
+    const cls=d>0?(inverse?'dn':'up'):d<0?(inverse?'up':'dn'):'eq';
+    return '<div class="fn-delta '+cls+'">'+sg+d+'%</div>';
+  };
   const stages=[];
-  if(visits>0)stages.push({lbl:'Website visits',val:visits,from:null});
-  stages.push({lbl:'Lead',val:m.t,from:visits>0?visits:null});
-  stages.push({lbl:'Gecontacteerd',val:m.c,from:m.t});
-  stages.push({lbl:'Sessie gepland',val:m.s,from:m.c});
+  if(visits>0)stages.push({lbl:'Website visits',val:visits,prv:prevVisits,from:null});
+  stages.push({lbl:'Lead',val:m.t,prv:mp?mp.t:0,from:visits>0?visits:null});
+  stages.push({lbl:'Gecontacteerd',val:m.c,prv:mp?mp.c:0,from:m.t});
+  stages.push({lbl:'Sessie gepland',val:m.s,prv:mp?mp.s:0,from:m.c});
   let html='';
   stages.forEach((st,i)=>{
     const conv=st.from>0?Math.round(st.val/st.from*100):null;
@@ -695,7 +706,7 @@ function renderFunnel(m,from,to){
     if(i>0){
       html+='<div class="fn-arrow"><div class="fn-arrow-stack">→<div class="fn-drop">-'+drop+'</div></div></div>';
     }
-    html+='<div class="fn-card"><div class="fn-stage">'+st.lbl+'</div><div class="fn-val">'+st.val.toLocaleString('nl-BE')+'</div>'+(conv!=null?'<div class="fn-conv">'+conv+'% van vorige</div>':'')+'</div>';
+    html+='<div class="fn-card"><div class="fn-stage">'+st.lbl+'</div><div class="fn-val">'+st.val.toLocaleString('nl-BE')+'</div>'+(conv!=null?'<div class="fn-conv">'+conv+'% van vorige</div>':'')+deltaTxt(st.val,st.prv,false)+'</div>';
   });
   // Show / No-show split (from sessie gepland)
   const sessTotal=m.s;
@@ -704,15 +715,15 @@ function renderFunnel(m,from,to){
   const sessUnk=sessTotal-m.sh-m.ns;
   html+='<div class="fn-arrow"><div class="fn-arrow-stack">→'+(sessUnk>0?'<div class="fn-drop">-'+sessUnk+'</div>':'')+'</div></div>';
   html+='<div class="fn-card fn-split"><div class="fn-stage">Show / No-show</div>'+
-    '<div class="fn-sub show"><span class="fn-sub-lbl">Show</span><span class="fn-sub-val">'+m.sh+' ('+shConv+'%)</span></div>'+
-    '<div class="fn-sub noshow"><span class="fn-sub-lbl">No-show</span><span class="fn-sub-val">'+m.ns+' ('+nsConv+'%)</span></div></div>';
+    '<div class="fn-sub show"><span class="fn-sub-lbl">Show</span><span class="fn-sub-val">'+m.sh+' ('+shConv+'%)</span>'+deltaTxt(m.sh,mp?mp.sh:0,false)+'</div>'+
+    '<div class="fn-sub noshow"><span class="fn-sub-lbl">No-show</span><span class="fn-sub-val">'+m.ns+' ('+nsConv+'%)</span>'+deltaTxt(m.ns,mp?mp.ns:0,true)+'</div></div>';
   // Won / Lost
   const wConv=m.t>0?Math.round(m.w/m.t*100):0;
   const lConv=m.t>0?Math.round(m.l/m.t*100):0;
   html+='<div class="fn-arrow">→</div>';
   html+='<div class="fn-card fn-split"><div class="fn-stage">Won / Lost</div>'+
-    '<div class="fn-sub win"><span class="fn-sub-lbl">Won</span><span class="fn-sub-val">'+m.w+' ('+wConv+'%)</span></div>'+
-    '<div class="fn-sub lost"><span class="fn-sub-lbl">Lost</span><span class="fn-sub-val">'+m.l+' ('+lConv+'%)</span></div></div>';
+    '<div class="fn-sub win"><span class="fn-sub-lbl">Won</span><span class="fn-sub-val">'+m.w+' ('+wConv+'%)</span>'+deltaTxt(m.w,mp?mp.w:0,false)+'</div>'+
+    '<div class="fn-sub lost"><span class="fn-sub-lbl">Lost</span><span class="fn-sub-val">'+m.l+' ('+lConv+'%)</span>'+deltaTxt(m.l,mp?mp.l:0,true)+'</div></div>';
   el.innerHTML=html;
 }
 function renderCharts(data){
@@ -998,7 +1009,7 @@ async function fetchAds(){
   const rm=calcLeads(rdata),rmp=rprev?calcLeads(rprev):null;
   renderKPIs(rm,rmp,comparing,rf,rt,rpf,rpt);
   renderCostFunnelTable(currentLeadsData,rf,rt);
-  renderFunnel(rm,rf,rt);
+  renderFunnel(rm,rf,rt,rmp,rpf,rpt);
 }
 function refreshAds(){fetchAds();}
 function update(){
@@ -1011,7 +1022,7 @@ function update(){
   else{ban.className='cmp-banner';}
   renderKPIs(m,mp,comparing,from,to,pf,pt);renderCharts(data);renderDrillTable(data,from,to);
   renderGroupTable(data,'locatie','tloc');renderGroupTable(data,'bron','tbron');
-  renderCostFunnelTable(data,from,to);renderFunnel(m,from,to);
+  renderCostFunnelTable(data,from,to);renderFunnel(m,from,to,mp,pf,pt);
 }
 
 let KPI_SUMMARY_CHART=null;
