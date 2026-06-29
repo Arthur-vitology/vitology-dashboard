@@ -346,10 +346,12 @@ const VITOLOGISTS_CSV='https://docs.google.com/spreadsheets/d/e/2PACX-1vQ6ul9nS3
 const GOOGLE_ADS_CSV='https://docs.google.com/spreadsheets/d/e/2PACX-1vTqXBJwIOEmZbrP59FWByhfA-O73BVtiunzmlCGKM2gTqr3vDezk9OIEDBKwhhZM68MbBDhTXpzebun/pub?output=csv';
 const META_ADS_CSV='https://docs.google.com/spreadsheets/d/e/2PACX-1vTqXBJwIOEmZbrP59FWByhfA-O73BVtiunzmlCGKM2gTqr3vDezk9OIEDBKwhhZM68MbBDhTXpzebun/pub?gid=77498021&single=true&output=csv';
 const TIKTOK_ADS_CSV='https://docs.google.com/spreadsheets/d/e/2PACX-1vTqXBJwIOEmZbrP59FWByhfA-O73BVtiunzmlCGKM2gTqr3vDezk9OIEDBKwhhZM68MbBDhTXpzebun/pub?gid=2140605932&single=true&output=csv';
+const GA4_VISITS_CSV='https://docs.google.com/spreadsheets/d/e/2PACX-1vTqXBJwIOEmZbrP59FWByhfA-O73BVtiunzmlCGKM2gTqr3vDezk9OIEDBKwhhZM68MbBDhTXpzebun/pub?gid=657378725&single=true&output=csv';
 
 let GOOGLE_ADS_DATA=[];
 let META_ADS_DATA=[];
 let TIKTOK_ADS_DATA=[];
+let GA4_DATA=[];
 let activeTab='leads';
 let ACTIVE_VITOLOGISTS=0;
 let VITOLOGISTS_DATA=[];
@@ -496,6 +498,28 @@ async function loadAdSheetData(csvUrl,targetArray){
       if(entry.datum)targetArray.push(entry);
     });
   }catch(e){console.error('Ad sheet load error:',e);}
+}
+async function loadGA4Data(){
+  if(!GA4_VISITS_CSV)return;
+  try{
+    const res=await fetch(GA4_VISITS_CSV);
+    if(!res.ok)return;
+    const txt=await res.text();
+    const rows=parseCSV(txt);
+    GA4_DATA=rows.map(r=>{
+      const get=k=>{const f=Object.keys(r).find(x=>x.trim().toLowerCase()===k.toLowerCase());return f?(r[f]||'').trim():'';};
+      return{datum:pd(get('Datum')),sessions:parseInt(get('Sessions'))||0,users:parseInt(get('Users'))||0,pageviews:parseInt(get('PageViews'))||0};
+    }).filter(r=>r.datum);
+  }catch(e){console.error('GA4 load error:',e);}
+}
+function getGA4Sessions(from,to){
+  return GA4_DATA.filter(r=>{
+    if(!r.datum)return false;
+    const ts=dayTs(r.datum);
+    if(from&&ts<dayTs(from))return false;
+    if(to&&ts>dayTs(to))return false;
+    return true;
+  }).reduce((s,r)=>s+r.sessions,0);
 }
 
 function mergeApiDaily(targetArray,dailyRows){
@@ -656,13 +680,14 @@ function renderKPIs(m,mp,cmp,from,to,pf,pt){
     kc('Open','<span class="badge b-open">'+m.o+'</span>','',pct(m.o,m.t)+'% van leads',dpNeg('o'))+
     kc('Lost','<span class="badge b-lost">'+m.l+'</span>','',pct(m.l,m.t)+'% van leads',dpNeg('l'));
 }
-function renderFunnel(m){
+function renderFunnel(m,from,to){
   const el=document.getElementById('funnel');if(!el)return;
-  const stages=[
-    {lbl:'Lead',val:m.t,from:null},
-    {lbl:'Gecontacteerd',val:m.c,from:m.t},
-    {lbl:'Sessie gepland',val:m.s,from:m.c},
-  ];
+  const visits=getGA4Sessions(from,to);
+  const stages=[];
+  if(visits>0)stages.push({lbl:'Website visits',val:visits,from:null});
+  stages.push({lbl:'Lead',val:m.t,from:visits>0?visits:null});
+  stages.push({lbl:'Gecontacteerd',val:m.c,from:m.t});
+  stages.push({lbl:'Sessie gepland',val:m.s,from:m.c});
   let html='';
   stages.forEach((st,i)=>{
     const conv=st.from>0?Math.round(st.val/st.from*100):null;
@@ -670,7 +695,7 @@ function renderFunnel(m){
     if(i>0){
       html+='<div class="fn-arrow"><div class="fn-arrow-stack">→<div class="fn-drop">-'+drop+'</div></div></div>';
     }
-    html+='<div class="fn-card"><div class="fn-stage">'+st.lbl+'</div><div class="fn-val">'+st.val+'</div>'+(conv!=null?'<div class="fn-conv">'+conv+'% van vorige</div>':'')+'</div>';
+    html+='<div class="fn-card"><div class="fn-stage">'+st.lbl+'</div><div class="fn-val">'+st.val.toLocaleString('nl-BE')+'</div>'+(conv!=null?'<div class="fn-conv">'+conv+'% van vorige</div>':'')+'</div>';
   });
   // Show / No-show split (from sessie gepland)
   const sessTotal=m.s;
@@ -973,7 +998,7 @@ async function fetchAds(){
   const rm=calcLeads(rdata),rmp=rprev?calcLeads(rprev):null;
   renderKPIs(rm,rmp,comparing,rf,rt,rpf,rpt);
   renderCostFunnelTable(currentLeadsData,rf,rt);
-  renderFunnel(rm);
+  renderFunnel(rm,rf,rt);
 }
 function refreshAds(){fetchAds();}
 function update(){
@@ -986,7 +1011,7 @@ function update(){
   else{ban.className='cmp-banner';}
   renderKPIs(m,mp,comparing,from,to,pf,pt);renderCharts(data);renderDrillTable(data,from,to);
   renderGroupTable(data,'locatie','tloc');renderGroupTable(data,'bron','tbron');
-  renderCostFunnelTable(data,from,to);renderFunnel(m);
+  renderCostFunnelTable(data,from,to);renderFunnel(m,from,to);
 }
 
 let KPI_SUMMARY_CHART=null;
@@ -1159,7 +1184,7 @@ function renderKpiTargets(){
 
 async function loadLeads(){
   try{
-    await Promise.all([loadGoogleAdsData(),loadAdSheetData(META_ADS_CSV,META_ADS_DATA),loadAdSheetData(TIKTOK_ADS_CSV,TIKTOK_ADS_DATA)]);
+    await Promise.all([loadGoogleAdsData(),loadAdSheetData(META_ADS_CSV,META_ADS_DATA),loadAdSheetData(TIKTOK_ADS_CSV,TIKTOK_ADS_DATA),loadGA4Data()]);
     const res=await fetch(LEADS_CSV);if(!res.ok)throw new Error('HTTP '+res.status);
     const txt=await res.text();
     LEADS_DATA=parseCSV(txt).map(mapLeadRow).filter(r=>r.datum);
