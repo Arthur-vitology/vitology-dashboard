@@ -356,7 +356,6 @@ let META_ADS_DATA=[];
 let TIKTOK_ADS_DATA=[];
 let GA4_DATA=[];
 let activeTab='leads';
-let ACTIVE_VITOLOGISTS=0;
 let VITOLOGISTS_DATA=[];
 
 function switchTab(tab){
@@ -560,9 +559,18 @@ function mapVitologistRow(r){
   return{vestiging:get('Vestiging'),actief:get('Vitologist?').toUpperCase()==='JA',startdatum:pd(get('Datum Vitologist geworden')),stopdatum:pd(get('Datum stopzetting')),abo:get('Abo'),email:get('Mail').toLowerCase()};
 }
 function getVitologistEmails(){return new Set(VITOLOGISTS_DATA.filter(v=>v.email).map(v=>v.email));}
+function isActiveNow(v){
+  if(v.actief)return true;
+  if(!v.stopdatum)return false;
+  const today=new Date();today.setHours(0,0,0,0);
+  return v.stopdatum>today;
+}
+function getCurrentActiveCount(loc){
+  return VITOLOGISTS_DATA.filter(v=>(!loc||v.vestiging===loc)&&isActiveNow(v)).length;
+}
 function getActiveByAbo(loc){
   const breakdown={};
-  VITOLOGISTS_DATA.filter(v=>(!loc||v.vestiging===loc)&&v.actief).forEach(v=>{
+  VITOLOGISTS_DATA.filter(v=>(!loc||v.vestiging===loc)&&isActiveNow(v)).forEach(v=>{
     const a=v.abo||'Onbekend';
     breakdown[a]=(breakdown[a]||0)+1;
   });
@@ -580,7 +588,7 @@ function getActiveMembersAtEndOfMonth(year,month,loc){
   const isCurrentMonth=year===now.getFullYear()&&month===now.getMonth();
   return VITOLOGISTS_DATA.filter(v=>{
     if(loc&&v.vestiging!==loc)return false;
-    if(isCurrentMonth)return v.actief;
+    if(isCurrentMonth)return isActiveNow(v);
     if(!v.startdatum)return false;
     if(v.startdatum>endOfMonth)return false;
     if(v.stopdatum&&v.stopdatum<=endOfMonth)return false;
@@ -608,7 +616,7 @@ function getCancellationsInRange(from,to,loc){
 function getActiveAtDate(endDate,loc){
   const now=new Date();
   if(!endDate||endDate>=now){
-    return VITOLOGISTS_DATA.filter(v=>(!loc||v.vestiging===loc)&&v.actief).length;
+    return getCurrentActiveCount(loc);
   }
   return VITOLOGISTS_DATA.filter(v=>{
     if(loc&&v.vestiging!==loc)return false;
@@ -1273,7 +1281,7 @@ function calcSales(data){
   const catTotals={};CATS.forEach(c=>catTotals[c]=data.filter(r=>r.category===c).reduce((s,r)=>s+r.amtExcl,0));
   const nonZero=data.filter(r=>r.amtExcl!==0);
   const nonZeroTotal=nonZero.reduce((s,r)=>s+r.amtExcl,0);
-  return{total,totalPaid,totalOpen,vitologists:ACTIVE_VITOLOGISTS,vitoqs,catTotals,count:data.length,paidCount:paid.length,openCount:open.length,nonZeroCount:nonZero.length,nonZeroTotal:nonZeroTotal};
+  return{total,totalPaid,totalOpen,vitologists:getCurrentActiveCount(),vitoqs,catTotals,count:data.length,paidCount:paid.length,openCount:open.length,nonZeroCount:nonZero.length,nonZeroTotal:nonZeroTotal};
 }
 function renderSalesKPIs(m,mp,cmp,pf,pt){
   const prvLbl=(cmp&&mp&&pf&&pt)?periodLabel(pf,pt):null;
@@ -1285,7 +1293,7 @@ function renderSalesKPIs(m,mp,cmp,pf,pt){
     ke('Openstaand',fmtEur(m.totalOpen),'c-amber c-amberbdr',''+m.openCount+' facturen',dp('totalOpen'))+
     ke('Gem. per factuur (excl. BTW)',m.nonZeroCount>0?fmtEur(m.nonZeroTotal/m.nonZeroCount):'€ —','c-blue','Bevat geen 0 euro-facturen',null);
   document.getElementById('skpis2').innerHTML=
-    ke('Actieve Vitologists',ACTIVE_VITOLOGISTS,'c-blue c-bluebdr','op basis van Vitologists tab',null)+
+    ke('Actieve Vitologists',getCurrentActiveCount(),'c-blue c-bluebdr','Incl. leden in opzegperiode (opzegdatum in de toekomst)',null)+
     ke('VitoQ sessies',m.vitoqs,'','',dp('vitoqs'))+
     ke('Facturen totaal',m.nonZeroCount,'','Bevat geen 0 euro-facturen',null);
 }
@@ -1432,7 +1440,6 @@ async function loadVitologists(){
     const txt=await res.text();
     const rows=parseCSV(txt);
     VITOLOGISTS_DATA=rows.map(mapVitologistRow);
-    ACTIVE_VITOLOGISTS=VITOLOGISTS_DATA.filter(r=>r.actief).length;
   }catch(e){console.error('Vitologists load error:',e);}
 }
 async function loadSales(){
