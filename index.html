@@ -320,7 +320,7 @@ tbody tr:hover td{background:#fafaf8!important}
       </div>
       <div class="cmp-banner" id="scb"></div>
       <div class="kpi-row s4" id="skpis1" style="margin-bottom:8px"></div>
-      <div class="kpi-row s3" id="skpis2" style="margin-bottom:16px"></div>
+      <div class="kpi-row s4" id="skpis2" style="margin-bottom:16px"></div>
       <div class="sec">
         <div class="sec-hdr"><div class="sec-title">Omzet per categorie</div><button class="export-btn" onclick="exportSalesCSV()">↓ Export CSV</button></div>
         <div class="tbl-wrap"><table id="scat-tbl"></table></div>
@@ -556,17 +556,22 @@ function mapLeadRow(r){
 }
 function mapVitologistRow(r){
   const get=k=>{const f=Object.keys(r).find(x=>x.trim().toLowerCase()===k.toLowerCase());return f?(r[f]||'').trim():'';};
-  return{vestiging:get('Vestiging'),actief:get('Vitologist?').toUpperCase()==='JA',startdatum:pd(get('Datum Vitologist geworden')),stopdatum:pd(get('Datum stopzetting')),abo:get('Abo'),email:get('Mail').toLowerCase()};
+  const statusRaw=get('Vitologist?').toUpperCase();
+  return{vestiging:get('Vestiging'),status:statusRaw,actief:statusRaw==='JA',inOpzeg:statusRaw==='OPZEG',startdatum:pd(get('Datum Vitologist geworden')),stopdatum:pd(get('Datum stopzetting')),abo:get('Abo'),email:get('Mail').toLowerCase()};
 }
 function getVitologistEmails(){return new Set(VITOLOGISTS_DATA.filter(v=>v.email).map(v=>v.email));}
 function isActiveNow(v){
-  if(v.actief)return true;
+  if(v.actief||v.inOpzeg)return true;
   if(!v.stopdatum)return false;
   const today=new Date();today.setHours(0,0,0,0);
   return v.stopdatum>today;
 }
 function getCurrentActiveCount(loc){
   return VITOLOGISTS_DATA.filter(v=>(!loc||v.vestiging===loc)&&isActiveNow(v)).length;
+}
+function getOpzegCount(loc){
+  const today=new Date();today.setHours(0,0,0,0);
+  return VITOLOGISTS_DATA.filter(v=>(!loc||v.vestiging===loc)&&(v.inOpzeg||(!v.actief&&v.stopdatum&&v.stopdatum>today))).length;
 }
 function getActiveByAbo(loc){
   const breakdown={};
@@ -1293,7 +1298,8 @@ function renderSalesKPIs(m,mp,cmp,pf,pt){
     ke('Openstaand',fmtEur(m.totalOpen),'c-amber c-amberbdr',''+m.openCount+' facturen',dp('totalOpen'))+
     ke('Gem. per factuur (excl. BTW)',m.nonZeroCount>0?fmtEur(m.nonZeroTotal/m.nonZeroCount):'€ —','c-blue','Bevat geen 0 euro-facturen',null);
   document.getElementById('skpis2').innerHTML=
-    ke('Actieve Vitologists',getCurrentActiveCount(),'c-blue c-bluebdr','Incl. leden in opzegperiode (opzegdatum in de toekomst)',null)+
+    ke('Actieve Vitologists',getCurrentActiveCount(),'c-blue c-bluebdr','Incl. leden in opzegperiode',null)+
+    ke('In opzegperiode',getOpzegCount(),'c-amber c-amberbdr','Kolom H = Opzeg of stopdatum in de toekomst',null)+
     ke('VitoQ sessies',m.vitoqs,'','',dp('vitoqs'))+
     ke('Facturen totaal',m.nonZeroCount,'','Bevat geen 0 euro-facturen',null);
 }
