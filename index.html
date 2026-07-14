@@ -1242,7 +1242,7 @@ function categorizeSub(sub,origin){
   if(!sub||sub.trim()==='')return'Andere';
   const s=sub.toLowerCase();
   if(s.includes('vitologist'))return'Vitologist';
-  if(s.includes('vitoq'))return'VitoQ';
+  if(s.includes('vitoq')||s.includes('full battery scan')||s.includes('battery scan'))return'VitoQ';
   if(['oxyboost','cellax','redlight','pulso','hbot','hyperbare','breathwork','lymfedrainage','ems','bioptimize'].some(x=>s.includes(x)))return'Losse sessies';
   if(s.includes('seminar'))return'Seminars';
   if(['credit','pack','kickstart','protocol'].some(x=>s.includes(x)))return'Credit packs';
