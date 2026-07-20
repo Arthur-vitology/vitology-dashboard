@@ -1,33 +1,45 @@
 /**
- * Google Apps Script — Dagelijkse synchronisatie van Google Analytics 4 website visits
+ * Google Apps Script — Dagelijkse synchronisatie van Google Analytics 4 data
  *
- * Schrijft per dag naar een GA4-tab in de sheet:
- * Kolommen: Datum | Sessions | Users | PageViews
+ * Twee tabs in de centrale sheet:
+ * - GA4        (visits):  Datum | Sessions | Users | PageViews
+ * - GA4 Events (funnel):  Datum | Event    | Count
  *
  * SETUP:
- * 1. Voeg een tab 'GA4' toe aan de centrale sheet (1TzW4...) met
- *    headers: Datum | Sessions | Users | PageViews
- * 2. Plak deze code als nieuw bestand `ga4.gs` in het bestaande
- *    "Vitology Google Ads data" Apps Script project
- * 3. Vul GA4_PROPERTY_ID hieronder in (te vinden in Google Analytics →
- *    Admin → Property Settings → "Property ID", bijv. "123456789")
- * 4. Schakel de "Google Analytics Data API" service in:
- *    Apps Script → Diensten (links) → "+" → "Google Analytics Data API"
- *    → versie v1beta → ID = AnalyticsData
- * 5. Run `fetchGA4Data` één keer handmatig om toestemming te geven
+ * 1. Voeg beide tabs toe aan de centrale sheet (1TzW4...) met bovenstaande headers
+ * 2. Plak deze code als `ga4.gs` in het bestaande Apps Script project
+ * 3. Vul GA4_PROPERTY_ID hieronder in
+ * 4. Schakel de "Google Analytics Data API" service in
+ *    (Diensten → "+" → Google Analytics Data API v1beta, ID = AnalyticsData)
+ * 5. Run `fetchGA4Data` handmatig — dit vult beide tabs
  * 6. Run `setupGA4Trigger` voor dagelijkse run om 06:00
- * 7. Publiceer de GA4 tab als CSV en kopieer de URL naar
- *    GA4_VISITS_CSV in index.html
+ * 7. Publiceer beide tabs afzonderlijk als CSV en zet de URLs in index.html
+ *    (GA4_VISITS_CSV en GA4_EVENTS_CSV)
  */
 
 var SHEET_ID = '1TzW4vfiGwaxq9xA3AoTaEO0XW6d3z3AnAnI5AaBKkcc';
-var SHEET_NAME = 'GA4';
+var VISITS_SHEET_NAME = 'GA4';
+var EVENTS_SHEET_NAME = 'GA4 Events';
 var GA4_PROPERTY_ID = 'JOUW_GA4_PROPERTY_ID_HIER';
 
+var FUNNEL_EVENTS = [
+  'battery_test_started',
+  'battery_test_completed',
+  'battery_test_score_calculated',
+  'battery_test_email_submitted',
+  'cta_clicked_battery_check',
+  'afspraak_bevestigd_salonized'
+];
+
 function fetchGA4Data() {
+  fetchGA4Visits();
+  fetchGA4Events();
+}
+
+function fetchGA4Visits() {
   var spreadsheet = SpreadsheetApp.openById(SHEET_ID);
-  var sheet = spreadsheet.getSheetByName(SHEET_NAME);
-  if (!sheet) sheet = spreadsheet.insertSheet(SHEET_NAME);
+  var sheet = spreadsheet.getSheetByName(VISITS_SHEET_NAME);
+  if (!sheet) sheet = spreadsheet.insertSheet(VISITS_SHEET_NAME);
 
   sheet.clearContents();
   sheet.appendRow(['Datum', 'Sessions', 'Users', 'PageViews']);
@@ -52,7 +64,7 @@ function fetchGA4Data() {
     var rows = response.rows || [];
 
     rows.forEach(function (row) {
-      var d = row.dimensionValues[0].value; // YYYYMMDD
+      var d = row.dimensionValues[0].value;
       var formatted = d.substring(0, 4) + '-' + d.substring(4, 6) + '-' + d.substring(6, 8);
       var sessions = parseInt(row.metricValues[0].value || 0);
       var users = parseInt(row.metricValues[1].value || 0);
@@ -60,9 +72,52 @@ function fetchGA4Data() {
       sheet.appendRow([formatted, sessions, users, pageviews]);
     });
 
-    Logger.log('GA4 sync klaar: ' + rows.length + ' dagen');
+    Logger.log('GA4 visits sync klaar: ' + rows.length + ' dagen');
   } catch (e) {
-    Logger.log('GA4 sync fout: ' + e.message);
+    Logger.log('GA4 visits sync fout: ' + e.message);
+  }
+}
+
+function fetchGA4Events() {
+  var spreadsheet = SpreadsheetApp.openById(SHEET_ID);
+  var sheet = spreadsheet.getSheetByName(EVENTS_SHEET_NAME);
+  if (!sheet) sheet = spreadsheet.insertSheet(EVENTS_SHEET_NAME);
+
+  sheet.clearContents();
+  sheet.appendRow(['Datum', 'Event', 'Count']);
+
+  var startDate = '2025-01-03';
+  var endDate = Utilities.formatDate(new Date(), 'Europe/Brussels', 'yyyy-MM-dd');
+
+  try {
+    var request = {
+      dateRanges: [{ startDate: startDate, endDate: endDate }],
+      dimensions: [{ name: 'date' }, { name: 'eventName' }],
+      metrics: [{ name: 'eventCount' }],
+      dimensionFilter: {
+        filter: {
+          fieldName: 'eventName',
+          inListFilter: { values: FUNNEL_EVENTS }
+        }
+      },
+      orderBys: [{ dimension: { dimensionName: 'date' }, desc: true }],
+      limit: 100000
+    };
+
+    var response = AnalyticsData.Properties.runReport(request, 'properties/' + GA4_PROPERTY_ID);
+    var rows = response.rows || [];
+
+    rows.forEach(function (row) {
+      var d = row.dimensionValues[0].value;
+      var formatted = d.substring(0, 4) + '-' + d.substring(4, 6) + '-' + d.substring(6, 8);
+      var eventName = row.dimensionValues[1].value;
+      var count = parseInt(row.metricValues[0].value || 0);
+      sheet.appendRow([formatted, eventName, count]);
+    });
+
+    Logger.log('GA4 events sync klaar: ' + rows.length + ' rijen');
+  } catch (e) {
+    Logger.log('GA4 events sync fout: ' + e.message);
   }
 }
 

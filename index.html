@@ -165,6 +165,7 @@ tbody tr:hover td{background:#fafaf8!important}
       <button class="tab active" onclick="switchTab('leads')">Leads dashboard</button>
       <button class="tab" onclick="switchTab('sales')">Sales dashboard</button>
       <button class="tab" onclick="switchTab('kpi')">KPI targets</button>
+      <button class="tab" onclick="switchTab('ga4')">GA4 Funnel</button>
     </div>
     <div class="lu" id="lu">Laden...</div>
   </div>
@@ -341,6 +342,9 @@ tbody tr:hover td{background:#fafaf8!important}
   <div id="tab-kpi" class="tab-content">
     <div id="kpi-content"></div>
   </div>
+  <div id="tab-ga4" class="tab-content">
+    <div id="ga4-content"></div>
+  </div>
 </div>
 <script>
 const LEADS_CSV='https://docs.google.com/spreadsheets/d/e/2PACX-1vQ6ul9nS3hs_bL9YVDy05O_kVdGoWsMHcqxME6DPqbarHPW_f4TqYAND05HvgsyEmPePTnTy8rRgXWv/pub?output=csv';
@@ -350,11 +354,22 @@ const GOOGLE_ADS_CSV='https://docs.google.com/spreadsheets/d/e/2PACX-1vTqXBJwIOE
 const META_ADS_CSV='https://docs.google.com/spreadsheets/d/e/2PACX-1vTqXBJwIOEmZbrP59FWByhfA-O73BVtiunzmlCGKM2gTqr3vDezk9OIEDBKwhhZM68MbBDhTXpzebun/pub?gid=77498021&single=true&output=csv';
 const TIKTOK_ADS_CSV='https://docs.google.com/spreadsheets/d/e/2PACX-1vTqXBJwIOEmZbrP59FWByhfA-O73BVtiunzmlCGKM2gTqr3vDezk9OIEDBKwhhZM68MbBDhTXpzebun/pub?gid=2140605932&single=true&output=csv';
 const GA4_VISITS_CSV='https://docs.google.com/spreadsheets/d/e/2PACX-1vTqXBJwIOEmZbrP59FWByhfA-O73BVtiunzmlCGKM2gTqr3vDezk9OIEDBKwhhZM68MbBDhTXpzebun/pub?gid=657378725&single=true&output=csv';
+const GA4_EVENTS_CSV='';
+
+const GA4_FUNNEL_STEPS=[
+  {ev:'battery_test_started',lbl:'Battery test gestart'},
+  {ev:'battery_test_completed',lbl:'Battery test afgerond'},
+  {ev:'battery_test_score_calculated',lbl:'Score berekend'},
+  {ev:'battery_test_email_submitted',lbl:'E-mail ingevuld'},
+  {ev:'cta_clicked_battery_check',lbl:'CTA geklikt'},
+  {ev:'afspraak_bevestigd_salonized',lbl:'Afspraak bevestigd'}
+];
 
 let GOOGLE_ADS_DATA=[];
 let META_ADS_DATA=[];
 let TIKTOK_ADS_DATA=[];
 let GA4_DATA=[];
+let GA4_EVENTS_DATA=[];
 let activeTab='leads';
 let VITOLOGISTS_DATA=[];
 
@@ -362,11 +377,12 @@ function switchTab(tab){
   activeTab=tab;
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
   document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
-  const idx=tab==='leads'?1:tab==='sales'?2:3;
+  const idx=tab==='leads'?1:tab==='sales'?2:tab==='kpi'?3:4;
   document.querySelector('.tab:nth-child('+idx+')').classList.add('active');
   document.getElementById('tab-'+tab).classList.add('active');
   if(tab==='sales'&&SALES_DATA.length===0)loadSales();
   if(tab==='kpi')renderKpiTargets();
+  if(tab==='ga4')renderGA4Funnel();
 }
 
 let LEADS_DATA=[],CL=null,CS=null,curMode='abs',comparing=true,currentLeadsData=[];
@@ -522,6 +538,28 @@ function getGA4Sessions(from,to){
     if(to&&ts>dayTs(to))return false;
     return true;
   }).reduce((s,r)=>s+r.sessions,0);
+}
+async function loadGA4Events(){
+  if(!GA4_EVENTS_CSV)return;
+  try{
+    const res=await fetch(GA4_EVENTS_CSV);
+    if(!res.ok)return;
+    const txt=await res.text();
+    const rows=parseCSV(txt);
+    GA4_EVENTS_DATA=rows.map(r=>{
+      const get=k=>{const f=Object.keys(r).find(x=>x.trim().toLowerCase()===k.toLowerCase());return f?(r[f]||'').trim():'';};
+      return{datum:pd(get('Datum')),event:get('Event'),count:parseInt(get('Count'))||0};
+    }).filter(r=>r.datum&&r.event);
+  }catch(e){console.error('GA4 events load error:',e);}
+}
+function getGA4EventCount(eventName,from,to){
+  return GA4_EVENTS_DATA.filter(r=>{
+    if(r.event!==eventName)return false;
+    const ts=dayTs(r.datum);
+    if(from&&ts<dayTs(from))return false;
+    if(to&&ts>dayTs(to))return false;
+    return true;
+  }).reduce((s,r)=>s+r.count,0);
 }
 
 function mergeApiDaily(targetArray,dailyRows){
@@ -1205,9 +1243,110 @@ function renderKpiTargets(){
   if(ms)ms.addEventListener('change',function(){SELECTED_KPI_MONTH=this.value;renderKpiTargets();});
 }
 
+let SELECTED_GA4_MONTH=null;
+let GA4_TREND_CHART=null;
+function initGa4Month(){if(SELECTED_GA4_MONTH)return;const d=new Date();SELECTED_GA4_MONTH=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');}
+function renderGA4Funnel(){
+  initGa4Month();
+  const el=document.getElementById('ga4-content');if(!el)return;
+  if(!GA4_EVENTS_CSV){
+    el.innerHTML='<div class="state-msg">GA4 Events CSV nog niet geconfigureerd. Publiceer de <strong>GA4 Events</strong> tab uit de centrale sheet als CSV en zet de URL in <code>GA4_EVENTS_CSV</code> in index.html.</div>';
+    return;
+  }
+  if(GA4_EVENTS_DATA.length===0){
+    el.innerHTML='<div class="state-msg">Geen GA4 event data gevonden. Run <code>fetchGA4Events</code> in Apps Script en controleer de gepubliceerde CSV URL.</div>';
+    return;
+  }
+  const opts=getKpiMonthOptions().map(o=>'<option value="'+o.key+'"'+(o.key===SELECTED_GA4_MONTH?' selected':'')+'>'+o.lbl+'</option>').join('');
+  const[mFrom,mTo]=getMonthRange(SELECTED_GA4_MONTH);
+  const MN=['Jan','Feb','Mrt','Apr','Mei','Jun','Jul','Aug','Sep','Okt','Nov','Dec'];
+  const monthLbl=MN[mFrom.getMonth()]+' '+mFrom.getFullYear();
+  const prevMonthStart=new Date(mFrom.getFullYear(),mFrom.getMonth()-1,1,0,0,0);
+  const prevMonthEnd=new Date(mFrom.getFullYear(),mFrom.getMonth(),0,23,59,59);
+  const prevLbl=MN[prevMonthStart.getMonth()]+' '+prevMonthStart.getFullYear();
+
+  const stages=GA4_FUNNEL_STEPS.map(s=>({lbl:s.lbl,ev:s.ev,val:getGA4EventCount(s.ev,mFrom,mTo),prv:getGA4EventCount(s.ev,prevMonthStart,prevMonthEnd)}));
+  const first=stages[0]?stages[0].val:0;
+  const firstPrv=stages[0]?stages[0].prv:0;
+
+  let funnelHtml='';
+  stages.forEach((st,i)=>{
+    const from=i===0?null:stages[i-1].val;
+    const conv=from>0?Math.round(st.val/from*100):null;
+    const drop=from!=null?(from-st.val):null;
+    if(i>0){
+      funnelHtml+='<div class="fn-arrow"><div class="fn-arrow-stack">→<div class="fn-drop">-'+drop.toLocaleString('nl-BE')+'</div></div></div>';
+    }
+    const deltaTxt=(()=>{
+      if(!st.prv)return '';
+      const d=Math.round((st.val-st.prv)/st.prv*100);if(!isFinite(d))return '';
+      const sg=d>=0?'+':'';
+      const cls=d>0?'up':d<0?'dn':'eq';
+      return '<div class="fn-delta '+cls+'">'+sg+d+'% vs '+prevLbl+'</div>';
+    })();
+    funnelHtml+='<div class="fn-card"><div class="fn-stage">'+st.lbl+'</div><div class="fn-val">'+st.val.toLocaleString('nl-BE')+'</div>'+(conv!=null?'<div class="fn-conv">'+conv+'% van vorige</div>':'')+deltaTxt+'</div>';
+  });
+
+  const overallConv=first>0?(stages[stages.length-1].val/first*100).toFixed(1):'0.0';
+  const overallConvPrv=firstPrv>0?(stages[stages.length-1].prv/firstPrv*100):0;
+  const overallDelta=overallConvPrv>0?Math.round((parseFloat(overallConv)-overallConvPrv)/overallConvPrv*100):null;
+
+  el.innerHTML=
+    '<div class="sec" style="display:flex;align-items:center;gap:12px;margin-bottom:12px;padding:10px 14px"><label style="font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em">Maand</label><select id="ga4-month" style="font-family:\'DM Sans\',sans-serif;font-size:12px;font-weight:500;padding:5px 24px 5px 8px;border:1px solid var(--bdr);border-radius:6px;background:var(--bg);color:var(--txt);cursor:pointer">'+opts+'</select><span style="font-size:11px;color:var(--muted)">Funnel op basis van GA4 events voor de geselecteerde maand</span></div>'+
+    '<div class="kpi-row s4" style="margin-bottom:12px">'+
+      '<div class="kpi c-blue c-bluebdr"><div class="kpi-lbl">Start (stap 1)</div><div class="kpi-val">'+first.toLocaleString('nl-BE')+'</div><div class="kpi-sub">'+stages[0].lbl+'</div></div>'+
+      '<div class="kpi c-green c-greenbdr"><div class="kpi-lbl">Eind (stap '+stages.length+')</div><div class="kpi-val">'+stages[stages.length-1].val.toLocaleString('nl-BE')+'</div><div class="kpi-sub">'+stages[stages.length-1].lbl+'</div></div>'+
+      '<div class="kpi c-amber c-amberbdr"><div class="kpi-lbl">Totale conversie</div><div class="kpi-val">'+overallConv+'%</div><div class="kpi-sub">stap 1 → stap '+stages.length+'</div>'+(overallDelta!==null?'<div class="kpi-cmp '+(overallDelta>0?'up':overallDelta<0?'dn':'eq')+'">'+(overallDelta>=0?'+':'')+overallDelta+'% vs '+prevLbl+'</div>':'')+'</div>'+
+      '<div class="kpi"><div class="kpi-lbl">Grootste drop-out</div><div class="kpi-val">'+(()=>{let maxDrop=0,maxIdx=-1;for(let i=1;i<stages.length;i++){const from=stages[i-1].val;if(from>0){const dropPct=(from-stages[i].val)/from*100;if(dropPct>maxDrop){maxDrop=dropPct;maxIdx=i;}}}return maxIdx>=0?Math.round(maxDrop)+'%':'—';})()+'</div><div class="kpi-sub">'+(()=>{let maxDrop=0,maxIdx=-1;for(let i=1;i<stages.length;i++){const from=stages[i-1].val;if(from>0){const dropPct=(from-stages[i].val)/from*100;if(dropPct>maxDrop){maxDrop=dropPct;maxIdx=i;}}}return maxIdx>=0?stages[maxIdx-1].lbl+' → '+stages[maxIdx].lbl:'';})()+'</div></div>'+
+    '</div>'+
+    '<div class="sec funnel-sec" style="margin-bottom:12px">'+
+      '<div class="sec-hdr"><div><div class="sec-title">Funnel — '+monthLbl+'</div><div style="font-size:10px;color:var(--muted);margin-top:2px">Drop-outs en conversie per stap · % vergelijking met '+prevLbl+'</div></div></div>'+
+      '<div id="ga4-funnel" class="funnel-flow"></div>'+
+    '</div>'+
+    '<div class="sec">'+
+      '<div class="sec-hdr"><div class="sec-title">Trend per event (laatste 12 maanden)</div></div>'+
+      '<div style="position:relative;height:280px"><canvas id="ga4-trend"></canvas></div>'+
+    '</div>';
+
+  document.getElementById('ga4-funnel').innerHTML=funnelHtml;
+
+  const trendMonths=[];
+  for(let i=11;i>=0;i--){
+    const d=new Date(mFrom.getFullYear(),mFrom.getMonth()-i,1);
+    trendMonths.push({key:d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'),lbl:MN[d.getMonth()]+' '+String(d.getFullYear()).slice(2)});
+  }
+  const palette=['#2d5be3','#1a6b4a','#e87d2d','#7a4a00','#8c1a1a','#6b3fa0'];
+  const datasets=GA4_FUNNEL_STEPS.map((s,i)=>({
+    label:s.lbl,
+    data:trendMonths.map(m=>{const[mf,mt]=getMonthRange(m.key);return getGA4EventCount(s.ev,mf,mt);}),
+    backgroundColor:palette[i%palette.length],
+    borderColor:palette[i%palette.length],
+    borderWidth:1,borderRadius:3
+  }));
+  if(GA4_TREND_CHART){GA4_TREND_CHART.destroy();GA4_TREND_CHART=null;}
+  const ctx=document.getElementById('ga4-trend');
+  if(ctx){
+    GA4_TREND_CHART=new Chart(ctx,{
+      type:'bar',
+      data:{labels:trendMonths.map(m=>m.lbl),datasets:datasets},
+      options:{
+        responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{display:true,position:'top',labels:{font:{size:10,family:'DM Mono'},boxWidth:10}}},
+        scales:{
+          x:{ticks:{font:{size:10,family:'DM Mono'}},grid:{display:false}},
+          y:{beginAtZero:true,ticks:{font:{size:10,family:'DM Mono'}},grid:{color:'#f0eeea'}}
+        }
+      }
+    });
+  }
+
+  const sel=document.getElementById('ga4-month');
+  if(sel)sel.addEventListener('change',function(){SELECTED_GA4_MONTH=this.value;renderGA4Funnel();});
+}
+
 async function loadLeads(){
   try{
-    await Promise.all([loadGoogleAdsData(),loadAdSheetData(META_ADS_CSV,META_ADS_DATA),loadAdSheetData(TIKTOK_ADS_CSV,TIKTOK_ADS_DATA),loadGA4Data()]);
+    await Promise.all([loadGoogleAdsData(),loadAdSheetData(META_ADS_CSV,META_ADS_DATA),loadAdSheetData(TIKTOK_ADS_CSV,TIKTOK_ADS_DATA),loadGA4Data(),loadGA4Events()]);
     const res=await fetch(LEADS_CSV);if(!res.ok)throw new Error('HTTP '+res.status);
     const txt=await res.text();
     LEADS_DATA=parseCSV(txt).map(mapLeadRow).filter(r=>r.datum);
