@@ -343,7 +343,35 @@ tbody tr:hover td{background:#fafaf8!important}
     <div id="kpi-content"></div>
   </div>
   <div id="tab-ga4" class="tab-content">
-    <div id="ga4-content"></div>
+    <div id="ga4-dash">
+      <div class="filters">
+        <div class="fg"><label>Periode</label>
+          <select id="gp">
+            <option value="all">Alle periodes</option>
+            <option value="leadstart">Sinds start lead meting</option>
+            <option value="today">Vandaag</option>
+            <option value="yesterday">Gisteren</option>
+            <option value="week">Deze week</option>
+            <option value="prevweek">Vorige week</option>
+            <option value="month" selected>Deze maand</option>
+            <option value="prev">Vorige maand</option>
+            <option value="quarter">Dit kwartaal</option>
+            <option value="prevquarter">Vorig kwartaal</option>
+            <option value="custom">Aangepaste datum</option>
+          </select>
+        </div>
+        <div class="cdates" id="gcd">
+          <div class="fg"><label>Van</label><input type="date" id="gdf"></div>
+          <div class="fg"><label>Tot</label><input type="date" id="gdt"></div>
+        </div>
+        <div class="fsep"></div>
+        <button class="cmp-btn on" id="gCmpBtn">↕ Vergelijking aan</button>
+        <div class="fg"><label>Vergelijk van</label><input type="date" id="gdfc"></div>
+        <div class="fg"><label>Vergelijk tot</label><input type="date" id="gdtc"></div>
+      </div>
+      <div class="cmp-banner" id="gcb"></div>
+      <div id="ga4-content"></div>
+    </div>
   </div>
 </div>
 <script>
@@ -1243,11 +1271,26 @@ function renderKpiTargets(){
   if(ms)ms.addEventListener('change',function(){SELECTED_KPI_MONTH=this.value;renderKpiTargets();});
 }
 
-let SELECTED_GA4_MONTH=null;
 let GA4_TREND_CHART=null;
-function initGa4Month(){if(SELECTED_GA4_MONTH)return;const d=new Date();SELECTED_GA4_MONTH=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');}
+let ga4Comparing=true;
+function getGA4Range(){
+  const p=document.getElementById('gp').value,now=new Date(),dow=(now.getDay()+6)%7;
+  let from=null,to=null,pf=null,pt=null;
+  if(p==='today'){from=new Date(now.getFullYear(),now.getMonth(),now.getDate(),0,0,0);to=new Date(now.getFullYear(),now.getMonth(),now.getDate(),23,59,59);pf=new Date(from);pf.setDate(pf.getDate()-1);pt=new Date(to);pt.setDate(pt.getDate()-1);}
+  else if(p==='yesterday'){from=new Date(now.getFullYear(),now.getMonth(),now.getDate()-1,0,0,0);to=new Date(now.getFullYear(),now.getMonth(),now.getDate()-1,23,59,59);pf=new Date(from);pf.setDate(pf.getDate()-1);pt=new Date(to);pt.setDate(pt.getDate()-1);}
+  else if(p==='week'){from=new Date(now.getFullYear(),now.getMonth(),now.getDate()-dow,0,0,0);to=new Date(now.getFullYear(),now.getMonth(),now.getDate(),23,59,59);pf=new Date(from);pf.setDate(pf.getDate()-7);pt=new Date(from);pt.setDate(pt.getDate()-1);pt.setHours(23,59,59);}
+  else if(p==='prevweek'){const mon=new Date(now.getFullYear(),now.getMonth(),now.getDate()-dow,0,0,0);from=new Date(mon);from.setDate(from.getDate()-7);to=new Date(mon);to.setDate(to.getDate()-1);to.setHours(23,59,59);pf=new Date(from);pf.setDate(pf.getDate()-7);pt=new Date(from);pt.setDate(pt.getDate()-1);pt.setHours(23,59,59);}
+  else if(p==='month'){from=new Date(now.getFullYear(),now.getMonth(),1,0,0,0);to=new Date(now.getFullYear(),now.getMonth(),now.getDate(),23,59,59);pf=new Date(now.getFullYear(),now.getMonth()-1,1,0,0,0);pt=new Date(now.getFullYear(),now.getMonth(),0,23,59,59);}
+  else if(p==='prev'){from=new Date(now.getFullYear(),now.getMonth()-1,1,0,0,0);to=new Date(now.getFullYear(),now.getMonth(),0,23,59,59);pf=new Date(now.getFullYear(),now.getMonth()-2,1,0,0,0);pt=new Date(now.getFullYear(),now.getMonth()-1,0,23,59,59);}
+  else if(p==='quarter'){const cq=Math.floor(now.getMonth()/3);from=new Date(now.getFullYear(),cq*3,1,0,0,0);to=new Date(now.getFullYear(),now.getMonth(),now.getDate(),23,59,59);pf=new Date(now.getFullYear(),cq*3-3,1,0,0,0);pt=new Date(now.getFullYear(),cq*3,0,23,59,59);}
+  else if(p==='prevquarter'){const cq=Math.floor(now.getMonth()/3);from=new Date(now.getFullYear(),cq*3-3,1,0,0,0);to=new Date(now.getFullYear(),cq*3,0,23,59,59);pf=new Date(now.getFullYear(),cq*3-6,1,0,0,0);pt=new Date(now.getFullYear(),cq*3-3,0,23,59,59);}
+  else if(p==='custom'){const fv=document.getElementById('gdf').value,tv=document.getElementById('gdt').value;if(fv){const[y,mo,d]=fv.split('-');from=new Date(+y,+mo-1,+d,0,0,0);}if(tv){const[y,mo,d]=tv.split('-');to=new Date(+y,+mo-1,+d,23,59,59);}if(from&&to){const span=to-from;pt=new Date(from.getTime()-1);pf=new Date(pt.getTime()-span);pf.setHours(0,0,0);}}
+  else if(p==='leadstart'){from=new Date(2026,2,19,0,0,0);to=new Date(now.getFullYear(),now.getMonth(),now.getDate(),23,59,59);}
+  const cfv=document.getElementById('gdfc').value,ctv=document.getElementById('gdtc').value;
+  if(cfv&&ctv){const[y,mo,d]=cfv.split('-');pf=new Date(+y,+mo-1,+d,0,0,0);const[y2,mo2,d2]=ctv.split('-');pt=new Date(+y2,+mo2-1,+d2,23,59,59);}
+  return{from,to,pf,pt};
+}
 function renderGA4Funnel(){
-  initGa4Month();
   const el=document.getElementById('ga4-content');if(!el)return;
   if(!GA4_EVENTS_CSV){
     el.innerHTML='<div class="state-msg">GA4 Events CSV nog niet geconfigureerd. Publiceer de <strong>GA4 Events</strong> tab uit de centrale sheet als CSV en zet de URL in <code>GA4_EVENTS_CSV</code> in index.html.</div>';
@@ -1257,50 +1300,50 @@ function renderGA4Funnel(){
     el.innerHTML='<div class="state-msg">Geen GA4 event data gevonden. Run <code>fetchGA4Events</code> in Apps Script en controleer de gepubliceerde CSV URL.</div>';
     return;
   }
-  const opts=getKpiMonthOptions().map(o=>'<option value="'+o.key+'"'+(o.key===SELECTED_GA4_MONTH?' selected':'')+'>'+o.lbl+'</option>').join('');
-  const[mFrom,mTo]=getMonthRange(SELECTED_GA4_MONTH);
-  const MN=['Jan','Feb','Mrt','Apr','Mei','Jun','Jul','Aug','Sep','Okt','Nov','Dec'];
-  const monthLbl=MN[mFrom.getMonth()]+' '+mFrom.getFullYear();
-  const prevMonthStart=new Date(mFrom.getFullYear(),mFrom.getMonth()-1,1,0,0,0);
-  const prevMonthEnd=new Date(mFrom.getFullYear(),mFrom.getMonth(),0,23,59,59);
-  const prevLbl=MN[prevMonthStart.getMonth()]+' '+prevMonthStart.getFullYear();
+  const{from,to,pf,pt}=getGA4Range();
+  const useCmp=ga4Comparing&&pf&&pt;
+  const curLbl=periodLabel(from,to)||'gekozen periode';
+  const prvLbl=useCmp?periodLabel(pf,pt):null;
 
-  const stages=GA4_FUNNEL_STEPS.map(s=>({lbl:s.lbl,ev:s.ev,val:getGA4EventCount(s.ev,mFrom,mTo),prv:getGA4EventCount(s.ev,prevMonthStart,prevMonthEnd)}));
+  const ban=document.getElementById('gcb');
+  if(useCmp){ban.className='cmp-banner on';ban.textContent='Vergelijking: '+(fmtD(from)||'begin')+' - '+(fmtD(to)||'nu')+' vs '+fmtD(pf)+' - '+fmtD(pt);}
+  else{ban.className='cmp-banner';}
+
+  const stages=GA4_FUNNEL_STEPS.map(s=>({lbl:s.lbl,ev:s.ev,val:getGA4EventCount(s.ev,from,to),prv:useCmp?getGA4EventCount(s.ev,pf,pt):0}));
   const first=stages[0]?stages[0].val:0;
   const firstPrv=stages[0]?stages[0].prv:0;
 
   let funnelHtml='';
   stages.forEach((st,i)=>{
-    const from=i===0?null:stages[i-1].val;
-    const conv=from>0?Math.round(st.val/from*100):null;
-    const drop=from!=null?(from-st.val):null;
+    const stFrom=i===0?null:stages[i-1].val;
+    const conv=stFrom>0?Math.round(st.val/stFrom*100):null;
+    const drop=stFrom!=null?(stFrom-st.val):null;
     if(i>0){
       funnelHtml+='<div class="fn-arrow"><div class="fn-arrow-stack">→<div class="fn-drop">-'+drop.toLocaleString('nl-BE')+'</div></div></div>';
     }
     const deltaTxt=(()=>{
-      if(!st.prv)return '';
+      if(!useCmp||!st.prv)return '';
       const d=Math.round((st.val-st.prv)/st.prv*100);if(!isFinite(d))return '';
       const sg=d>=0?'+':'';
       const cls=d>0?'up':d<0?'dn':'eq';
-      return '<div class="fn-delta '+cls+'">'+sg+d+'% vs '+prevLbl+'</div>';
+      return '<div class="fn-delta '+cls+'">'+sg+d+'% vs '+prvLbl+'</div>';
     })();
     funnelHtml+='<div class="fn-card"><div class="fn-stage">'+st.lbl+'</div><div class="fn-val">'+st.val.toLocaleString('nl-BE')+'</div>'+(conv!=null?'<div class="fn-conv">'+conv+'% van vorige</div>':'')+deltaTxt+'</div>';
   });
 
   const overallConv=first>0?(stages[stages.length-1].val/first*100).toFixed(1):'0.0';
   const overallConvPrv=firstPrv>0?(stages[stages.length-1].prv/firstPrv*100):0;
-  const overallDelta=overallConvPrv>0?Math.round((parseFloat(overallConv)-overallConvPrv)/overallConvPrv*100):null;
+  const overallDelta=useCmp&&overallConvPrv>0?Math.round((parseFloat(overallConv)-overallConvPrv)/overallConvPrv*100):null;
 
   el.innerHTML=
-    '<div class="sec" style="display:flex;align-items:center;gap:12px;margin-bottom:12px;padding:10px 14px"><label style="font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em">Maand</label><select id="ga4-month" style="font-family:\'DM Sans\',sans-serif;font-size:12px;font-weight:500;padding:5px 24px 5px 8px;border:1px solid var(--bdr);border-radius:6px;background:var(--bg);color:var(--txt);cursor:pointer">'+opts+'</select><span style="font-size:11px;color:var(--muted)">Funnel op basis van GA4 events voor de geselecteerde maand</span></div>'+
     '<div class="kpi-row s4" style="margin-bottom:12px">'+
       '<div class="kpi c-blue c-bluebdr"><div class="kpi-lbl">Start (stap 1)</div><div class="kpi-val">'+first.toLocaleString('nl-BE')+'</div><div class="kpi-sub">'+stages[0].lbl+'</div></div>'+
       '<div class="kpi c-green c-greenbdr"><div class="kpi-lbl">Eind (stap '+stages.length+')</div><div class="kpi-val">'+stages[stages.length-1].val.toLocaleString('nl-BE')+'</div><div class="kpi-sub">'+stages[stages.length-1].lbl+'</div></div>'+
-      '<div class="kpi c-amber c-amberbdr"><div class="kpi-lbl">Totale conversie</div><div class="kpi-val">'+overallConv+'%</div><div class="kpi-sub">stap 1 → stap '+stages.length+'</div>'+(overallDelta!==null?'<div class="kpi-cmp '+(overallDelta>0?'up':overallDelta<0?'dn':'eq')+'">'+(overallDelta>=0?'+':'')+overallDelta+'% vs '+prevLbl+'</div>':'')+'</div>'+
-      '<div class="kpi"><div class="kpi-lbl">Grootste drop-out</div><div class="kpi-val">'+(()=>{let maxDrop=0,maxIdx=-1;for(let i=1;i<stages.length;i++){const from=stages[i-1].val;if(from>0){const dropPct=(from-stages[i].val)/from*100;if(dropPct>maxDrop){maxDrop=dropPct;maxIdx=i;}}}return maxIdx>=0?Math.round(maxDrop)+'%':'—';})()+'</div><div class="kpi-sub">'+(()=>{let maxDrop=0,maxIdx=-1;for(let i=1;i<stages.length;i++){const from=stages[i-1].val;if(from>0){const dropPct=(from-stages[i].val)/from*100;if(dropPct>maxDrop){maxDrop=dropPct;maxIdx=i;}}}return maxIdx>=0?stages[maxIdx-1].lbl+' → '+stages[maxIdx].lbl:'';})()+'</div></div>'+
+      '<div class="kpi c-amber c-amberbdr"><div class="kpi-lbl">Totale conversie</div><div class="kpi-val">'+overallConv+'%</div><div class="kpi-sub">stap 1 → stap '+stages.length+'</div>'+(overallDelta!==null?'<div class="kpi-cmp '+(overallDelta>0?'up':overallDelta<0?'dn':'eq')+'">'+(overallDelta>=0?'+':'')+overallDelta+'% vs '+prvLbl+'</div>':'')+'</div>'+
+      '<div class="kpi"><div class="kpi-lbl">Grootste drop-out</div><div class="kpi-val">'+(()=>{let maxDrop=0,maxIdx=-1;for(let i=1;i<stages.length;i++){const stFrom=stages[i-1].val;if(stFrom>0){const dropPct=(stFrom-stages[i].val)/stFrom*100;if(dropPct>maxDrop){maxDrop=dropPct;maxIdx=i;}}}return maxIdx>=0?Math.round(maxDrop)+'%':'—';})()+'</div><div class="kpi-sub">'+(()=>{let maxDrop=0,maxIdx=-1;for(let i=1;i<stages.length;i++){const stFrom=stages[i-1].val;if(stFrom>0){const dropPct=(stFrom-stages[i].val)/stFrom*100;if(dropPct>maxDrop){maxDrop=dropPct;maxIdx=i;}}}return maxIdx>=0?stages[maxIdx-1].lbl+' → '+stages[maxIdx].lbl:'';})()+'</div></div>'+
     '</div>'+
     '<div class="sec funnel-sec" style="margin-bottom:12px">'+
-      '<div class="sec-hdr"><div><div class="sec-title">Funnel — '+monthLbl+'</div><div style="font-size:10px;color:var(--muted);margin-top:2px">Drop-outs en conversie per stap · % vergelijking met '+prevLbl+'</div></div></div>'+
+      '<div class="sec-hdr"><div><div class="sec-title">Funnel — '+curLbl+'</div><div style="font-size:10px;color:var(--muted);margin-top:2px">Drop-outs en conversie per stap'+(useCmp?' · % vergelijking met '+prvLbl:'')+'</div></div></div>'+
       '<div id="ga4-funnel" class="funnel-flow"></div>'+
     '</div>'+
     '<div class="sec">'+
@@ -1310,9 +1353,11 @@ function renderGA4Funnel(){
 
   document.getElementById('ga4-funnel').innerHTML=funnelHtml;
 
+  const MN=['Jan','Feb','Mrt','Apr','Mei','Jun','Jul','Aug','Sep','Okt','Nov','Dec'];
+  const anchor=from||new Date();
   const trendMonths=[];
   for(let i=11;i>=0;i--){
-    const d=new Date(mFrom.getFullYear(),mFrom.getMonth()-i,1);
+    const d=new Date(anchor.getFullYear(),anchor.getMonth()-i,1);
     trendMonths.push({key:d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'),lbl:MN[d.getMonth()]+' '+String(d.getFullYear()).slice(2)});
   }
   const palette=['#2d5be3','#1a6b4a','#e87d2d','#7a4a00','#8c1a1a','#6b3fa0'];
@@ -1339,9 +1384,6 @@ function renderGA4Funnel(){
       }
     });
   }
-
-  const sel=document.getElementById('ga4-month');
-  if(sel)sel.addEventListener('change',function(){SELECTED_GA4_MONTH=this.value;renderGA4Funnel();});
 }
 
 async function loadLeads(){
@@ -1612,6 +1654,12 @@ document.getElementById('sdt').addEventListener('change',updateSales);
 document.getElementById('sdfc').addEventListener('change',updateSales);
 document.getElementById('sdtc').addEventListener('change',updateSales);
 document.getElementById('sCmpBtn').addEventListener('click',function(){salesComparing=!salesComparing;this.classList.toggle('on',salesComparing);this.textContent=salesComparing?'↕ Vergelijking aan':'↕ Vergelijk met vorige periode';updateSales();});
+document.getElementById('gp').addEventListener('change',function(){document.getElementById('gcd').className=this.value==='custom'?'cdates on':'cdates';renderGA4Funnel();});
+document.getElementById('gdf').addEventListener('change',renderGA4Funnel);
+document.getElementById('gdt').addEventListener('change',renderGA4Funnel);
+document.getElementById('gdfc').addEventListener('change',renderGA4Funnel);
+document.getElementById('gdtc').addEventListener('change',renderGA4Funnel);
+document.getElementById('gCmpBtn').addEventListener('click',function(){ga4Comparing=!ga4Comparing;this.classList.toggle('on',ga4Comparing);this.textContent=ga4Comparing?'↕ Vergelijking aan':'↕ Vergelijk met vorige periode';renderGA4Funnel();});
 loadLeads();
 loadVitologists();
 </script>
