@@ -1419,15 +1419,14 @@ const CAT_COLORS={'Vitologist':'#2d5be3','Full Battery Scan':'#1a6b4a','Losse se
 const LOC_COLORS={'Vitology Antwerpen':'#2d5be3','Vitology Schilde':'#1a6b4a'};
 function parseAmt(v){if(v===null||v===undefined||v==='')return 0;return parseFloat(String(v).replace(',','.').replace(/[^0-9.\-]/g,''))||0;}
 function categorizeSub(sub,origin){
-  if(origin&&origin.toLowerCase()==='punchcard')return'Credit packs';
-  if(origin&&origin.toLowerCase()==='cashregister')return"Producten / programma's";
-  if(!sub||sub.trim()==='')return'Andere';
-  const s=sub.toLowerCase();
+  const s=(sub||'').toLowerCase().trim();
   if(s.includes('vitologist'))return'Vitologist';
   if(s.includes('vitoq')||s.includes('full battery scan')||s.includes('battery scan'))return'Full Battery Scan';
   if(['oxyboost','cellax','redlight','pulso','hbot','hyperbare','breathwork','lymfedrainage','ems','bioptimize'].some(x=>s.includes(x)))return'Losse sessies';
   if(s.includes('seminar'))return'Seminars';
   if(['credit','pack','kickstart','protocol'].some(x=>s.includes(x)))return'Credit packs';
+  if(origin&&origin.toLowerCase()==='punchcard')return'Credit packs';
+  if(origin&&origin.toLowerCase()==='cashregister')return"Producten / programma's";
   return'Andere';
 }
 function mapSalesRow(r){
