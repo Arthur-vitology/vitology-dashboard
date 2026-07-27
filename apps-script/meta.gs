@@ -4,6 +4,11 @@ var ACCESS_TOKEN = 'JOUW_META_ACCESS_TOKEN_HIER';
 var AD_ACCOUNT_ID = 'JOUW_META_AD_ACCOUNT_ID_HIER';
 
 function fetchMetaData() {
+  if (!ACCESS_TOKEN || ACCESS_TOKEN === 'JOUW_META_ACCESS_TOKEN_HIER') {
+    Logger.log('ACCESS_TOKEN is niet ingesteld, sync overgeslagen.');
+    return;
+  }
+
   var spreadsheet = SpreadsheetApp.openById(SHEET_ID);
   var sheet = spreadsheet.getSheetByName(SHEET_NAME);
 
@@ -11,12 +16,10 @@ function fetchMetaData() {
     sheet = spreadsheet.insertSheet(SHEET_NAME);
   }
 
-  sheet.clearContents();
-  sheet.appendRow(['Datum', 'Spend', 'Impressies', 'Kliks']);
-
   var startDate = new Date('2025-01-03');
   var today = new Date();
   var allRows = {};
+  var hadError = false;
 
   var current = new Date(startDate);
   while (current <= today) {
@@ -50,6 +53,7 @@ function fetchMetaData() {
 
     if (data.error) {
       Logger.log('Fout voor periode ' + fromStr + ' - ' + toStr + ': ' + data.error.message);
+      hadError = true;
     } else {
       var rows = data.data || [];
       rows.forEach(function (row) {
@@ -72,12 +76,24 @@ function fetchMetaData() {
   }
 
   var dates = Object.keys(allRows).sort().reverse();
+
+  if (dates.length === 0) {
+    Logger.log('Geen data opgehaald (mogelijk verlopen ACCESS_TOKEN), sheet blijft ongewijzigd.');
+    return;
+  }
+
+  sheet.clearContents();
+  sheet.appendRow(['Datum', 'Spend', 'Impressies', 'Kliks']);
   dates.forEach(function (date) {
     var d = allRows[date];
     sheet.appendRow([date, Math.round(d.spend * 100) / 100, d.impressions, d.clicks]);
   });
 
-  Logger.log('Klaar: ' + dates.length + ' dagen opgehaald.');
+  if (hadError) {
+    Logger.log('Klaar met fouten: ' + dates.length + ' dagen opgehaald, sommige periodes gaven een fout (zie hierboven).');
+  } else {
+    Logger.log('Klaar: ' + dates.length + ' dagen opgehaald.');
+  }
 }
 
 function setupMetaTrigger() {
