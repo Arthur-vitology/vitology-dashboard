@@ -1,11 +1,25 @@
 var SHEET_ID = '1TzW4vfiGwaxq9xA3AoTaEO0XW6d3z3AnAnI5AaBKkcc';
 var SHEET_NAME = 'Meta';
-var ACCESS_TOKEN = 'EAAei0OZAj9KQBSJ08YjZCg0yuVvWcYC1mgvkaQ3ZAIqVqNwrenauaGRvRZBIq6CL0MkHgvzkHalZBni4yegvRtLWuzGerwuUZCzYrvACizdZBLhFUSYjdW6u3nXIbM25WRKH9T0ulbIHBjlY0Gmp5BL7qcTQFAY52RuGjjTCeSwZAZAIcHBIyZCoPPZBIcnOP2ZCZAAZDZD';
-var AD_ACCOUNT_ID = '1713113725906953';
+
+/**
+ * ACCESS_TOKEN en AD_ACCOUNT_ID staan bewust niet als hardcoded variabelen in dit
+ * bestand (dat wordt gecommit naar git). Zet ze in plaats daarvan als Script Properties:
+ * Apps Script editor > tandwiel "Project Settings" > Script Properties > Add script property
+ *   META_ACCESS_TOKEN   = <je token>
+ *   META_AD_ACCOUNT_ID  = <je ad account id, zonder "act_" prefix>
+ */
+function getCredentials() {
+  var props = PropertiesService.getScriptProperties();
+  return {
+    accessToken: props.getProperty('META_ACCESS_TOKEN'),
+    adAccountId: props.getProperty('META_AD_ACCOUNT_ID'),
+  };
+}
 
 function fetchMetaData() {
-  if (!ACCESS_TOKEN || ACCESS_TOKEN === 'EAAei0OZAj9KQBSJ08YjZCg0yuVvWcYC1mgvkaQ3ZAIqVqNwrenauaGRvRZBIq6CL0MkHgvzkHalZBni4yegvRtLWuzGerwuUZCzYrvACizdZBLhFUSYjdW6u3nXIbM25WRKH9T0ulbIHBjlY0Gmp5BL7qcTQFAY52RuGjjTCeSwZAZAIcHBIyZCoPPZBIcnOP2ZCZAAZDZD') {
-    Logger.log('ACCESS_TOKEN is niet ingesteld, sync overgeslagen.');
+  var creds = getCredentials();
+  if (!creds.accessToken || !creds.adAccountId) {
+    Logger.log('META_ACCESS_TOKEN of META_AD_ACCOUNT_ID script property ontbreekt, sync overgeslagen.');
     return;
   }
 
@@ -35,13 +49,13 @@ function fetchMetaData() {
     ]));
     var timeRange = encodeURIComponent(JSON.stringify({ since: fromStr, until: toStr }));
 
-    var url = 'https://graph.facebook.com/v19.0/act_' + AD_ACCOUNT_ID + '/insights' +
+    var url = 'https://graph.facebook.com/v19.0/act_' + creds.adAccountId + '/insights' +
       '?fields=spend,impressions,clicks' +
       '&time_range=' + timeRange +
       '&time_increment=1' +
       '&filtering=' + filtering +
       '&limit=500' +
-      '&access_token=' + ACCESS_TOKEN;
+      '&access_token=' + creds.accessToken;
 
     var options = {
       'method': 'GET',
