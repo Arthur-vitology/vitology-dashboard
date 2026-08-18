@@ -627,7 +627,7 @@ function mapVitologistRow(r){
 }
 function getVitologistEmails(){return new Set(VITOLOGISTS_DATA.filter(v=>v.email).map(v=>v.email));}
 function isActiveNow(v){
-  if(v.actief||v.inOpzeg)return true;
+  if(v.actief)return true;
   if(!v.stopdatum)return false;
   const today=new Date();today.setHours(0,0,0,0);
   return v.stopdatum>today;
@@ -637,7 +637,12 @@ function getCurrentActiveCount(loc){
 }
 function getOpzegCount(loc){
   const today=new Date();today.setHours(0,0,0,0);
-  return VITOLOGISTS_DATA.filter(v=>(!loc||v.vestiging===loc)&&(v.inOpzeg||(!v.actief&&v.stopdatum&&v.stopdatum>today))).length;
+  return VITOLOGISTS_DATA.filter(v=>{
+    if(loc&&v.vestiging!==loc)return false;
+    if(v.actief)return false;
+    if(!v.stopdatum)return false;
+    return v.stopdatum>today;
+  }).length;
 }
 function getActiveByAbo(loc){
   const breakdown={};
