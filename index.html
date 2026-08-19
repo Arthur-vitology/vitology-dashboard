@@ -1422,20 +1422,22 @@ const CATS=['Vitologist','Full Battery Scan','Losse sessies','Credit packs','Sem
 const CAT_COLORS={'Vitologist':'#2d5be3','Full Battery Scan':'#1a6b4a','Losse sessies':'#e87d2d','Credit packs':'#7a4a00','Seminars':'#8c1a1a',"Producten / programma's":'#6b3fa0','Andere':'#a0a09a'};
 const LOC_COLORS={'Vitology Antwerpen':'#2d5be3','Vitology Schilde':'#1a6b4a'};
 function parseAmt(v){if(v===null||v===undefined||v==='')return 0;return parseFloat(String(v).replace(',','.').replace(/[^0-9.\-]/g,''))||0;}
-function categorizeSub(sub,origin){
+function categorizeSub(sub,origin,desc){
   const s=(sub||'').toLowerCase().trim();
-  if(s.includes('vitologist'))return'Vitologist';
-  if(s.includes('vitoq')||s.includes('full battery scan')||s.includes('battery scan'))return'Full Battery Scan';
-  if(['oxyboost','cellax','redlight','pulso','hbot','hyperbare','breathwork','lymfedrainage','ems','bioptimize'].some(x=>s.includes(x)))return'Losse sessies';
-  if(s.includes('seminar'))return'Seminars';
-  if(['credit','pack','kickstart','protocol'].some(x=>s.includes(x)))return'Credit packs';
+  const d=(desc||'').toLowerCase().trim();
+  const has=needle=>s.includes(needle)||d.includes(needle);
+  if(has('vitologist'))return'Vitologist';
+  if(has('vitoq')||has('full battery scan')||has('battery scan'))return'Full Battery Scan';
+  if(['oxyboost','cellax','redlight','pulso','hbot','hyperbare','breathwork','lymfedrainage','ems','bioptimize'].some(has))return'Losse sessies';
+  if(has('seminar'))return'Seminars';
+  if(['credit','pack','kickstart','protocol'].some(has))return'Credit packs';
   if(origin&&origin.toLowerCase()==='punchcard')return'Credit packs';
   if(origin&&origin.toLowerCase()==='cashregister')return"Producten / programma's";
   return'Andere';
 }
 function mapSalesRow(r){
   const get=k=>{const f=Object.keys(r).find(x=>x.trim().toLowerCase()===k.toLowerCase());return f?(r[f]||'').trim():'';};
-  return{invoiceId:get('invoiceid')||get('invoiceId'),memberId:get('memberid')||get('memberId'),location:get('location'),memberName:get('membername')||get('memberName'),datum:pd(get('invoicedate')||get('invoiceDate')),amtExcl:parseAmt(get('amountexclvat')||get('amountExclVat')),amtIncl:parseAmt(get('amountinclvat')||get('amountInclVat')),status:get('invoicestatus')||get('invoiceStatus'),subscription:get('subscription'),origin:get('origin'),category:''};
+  return{invoiceId:get('invoiceid')||get('invoiceId'),memberId:get('memberid')||get('memberId'),location:get('location'),memberName:get('membername')||get('memberName'),datum:pd(get('invoicedate')||get('invoiceDate')),amtExcl:parseAmt(get('amountexclvat')||get('amountExclVat')),amtIncl:parseAmt(get('amountinclvat')||get('amountInclVat')),status:get('invoicestatus')||get('invoiceStatus'),subscription:get('subscription'),origin:get('origin'),description:get('description'),category:''};
 }
 function getSalesRange(){
   const p=document.getElementById('ssp').value,now=new Date(),dow=(now.getDay()+6)%7;
@@ -1640,7 +1642,7 @@ async function loadSales(){
     const txt=await res.text();
     SALES_DATA=parseCSV(txt).map(mapSalesRow).filter(r=>r.datum);
     SALES_DATA=SALES_DATA.filter(r=>r.location!=='Vitology Rotterdam');
-    SALES_DATA.forEach(r=>r.category=categorizeSub(r.subscription,r.origin));
+    SALES_DATA.forEach(r=>r.category=categorizeSub(r.subscription,r.origin,r.description));
     document.getElementById('sales-loading').style.display='none';
     document.getElementById('sales-dash').style.display='block';
     updateSales();
