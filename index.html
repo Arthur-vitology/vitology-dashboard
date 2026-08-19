@@ -1422,10 +1422,10 @@ const CATS=['Vitologist','Full Battery Scan','Losse sessies','Credit packs','Sem
 const CAT_COLORS={'Vitologist':'#2d5be3','Full Battery Scan':'#1a6b4a','Losse sessies':'#e87d2d','Credit packs':'#7a4a00','Seminars':'#8c1a1a',"Producten / programma's":'#6b3fa0','Andere':'#a0a09a'};
 const LOC_COLORS={'Vitology Antwerpen':'#2d5be3','Vitology Schilde':'#1a6b4a'};
 function parseAmt(v){if(v===null||v===undefined||v==='')return 0;return parseFloat(String(v).replace(',','.').replace(/[^0-9.\-]/g,''))||0;}
-function categorizeSub(sub,origin,desc){
+function categorizeSub(sub,origin,flowStep){
   const s=(sub||'').toLowerCase().trim();
-  const d=(desc||'').toLowerCase().trim();
-  const has=needle=>s.includes(needle)||d.includes(needle);
+  const f=(flowStep||'').toLowerCase().trim();
+  const has=needle=>s.includes(needle)||f.includes(needle);
   if(has('vitologist'))return'Vitologist';
   if(has('vitoq')||has('full battery scan')||has('battery scan'))return'Full Battery Scan';
   if(['oxyboost','cellax','redlight','pulso','hbot','hyperbare','breathwork','lymfedrainage','ems','bioptimize'].some(has))return'Losse sessies';
@@ -1437,7 +1437,7 @@ function categorizeSub(sub,origin,desc){
 }
 function mapSalesRow(r){
   const get=k=>{const f=Object.keys(r).find(x=>x.trim().toLowerCase()===k.toLowerCase());return f?(r[f]||'').trim():'';};
-  return{invoiceId:get('invoiceid')||get('invoiceId'),memberId:get('memberid')||get('memberId'),location:get('location'),memberName:get('membername')||get('memberName'),datum:pd(get('invoicedate')||get('invoiceDate')),amtExcl:parseAmt(get('amountexclvat')||get('amountExclVat')),amtIncl:parseAmt(get('amountinclvat')||get('amountInclVat')),status:get('invoicestatus')||get('invoiceStatus'),subscription:get('subscription'),origin:get('origin'),description:get('description'),category:''};
+  return{invoiceId:get('invoiceid')||get('invoiceId'),memberId:get('memberid')||get('memberId'),location:get('location'),memberName:get('membername')||get('memberName'),datum:pd(get('invoicedate')||get('invoiceDate')),amtExcl:parseAmt(get('amountexclvat')||get('amountExclVat')),amtIncl:parseAmt(get('amountinclvat')||get('amountInclVat')),status:get('invoicestatus')||get('invoiceStatus'),subscription:get('subscription'),origin:get('origin'),flowStep:get('flowStepTitle')||get('flowsteptitle'),category:''};
 }
 function getSalesRange(){
   const p=document.getElementById('ssp').value,now=new Date(),dow=(now.getDay()+6)%7;
