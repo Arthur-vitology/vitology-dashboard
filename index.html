@@ -623,7 +623,7 @@ function mapLeadRow(r){
 function mapVitologistRow(r){
   const get=k=>{const f=Object.keys(r).find(x=>x.trim().toLowerCase()===k.toLowerCase());return f?(r[f]||'').trim():'';};
   const statusRaw=get('Vitologist?').toUpperCase();
-  return{vestiging:get('Vestiging'),status:statusRaw,actief:statusRaw==='JA',inOpzeg:statusRaw==='OPZEG',startdatum:pd(get('Datum Vitologist geworden')),stopdatum:pd(get('Datum stopzetting')),abo:get('Abo actueel')||get('Abo bij instap')||get('Abo'),email:get('Mail').toLowerCase()};
+  return{vestiging:get('Vestiging'),status:statusRaw,actief:statusRaw==='JA',inOpzeg:statusRaw==='OPZEG',startdatum:pd(get('Datum Vitologist geworden')),stopdatum:pd(get('Datum stopzetting')),abo:get('Abo actueel')||get('Abo'),email:get('Mail').toLowerCase()};
 }
 function getVitologistEmails(){return new Set(VITOLOGISTS_DATA.filter(v=>v.email).map(v=>v.email));}
 function isActiveNow(v){
